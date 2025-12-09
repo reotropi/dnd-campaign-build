@@ -1,6 +1,4 @@
 'use client';
-
-import { Text } from '@mantine/core';
 import { ReactNode } from 'react';
 
 interface MarkdownTextProps {
@@ -11,7 +9,7 @@ interface MarkdownTextProps {
 /**
  * Simple markdown parser for DM messages
  * Supports:
- * - **bold** text
+ * - **bold** text (even across multiple lines)
  * - *italic* text
  * - # Headers
  * - ## Subheaders
@@ -19,43 +17,11 @@ interface MarkdownTextProps {
 export function MarkdownText({ content, style }: MarkdownTextProps) {
   const parseMarkdown = (text: string): ReactNode[] => {
     const parts: ReactNode[] = [];
-
-    // Split by lines to handle headers
-    const lines = text.split('\n');
-
-    lines.forEach((line, lineIndex) => {
-      // Check for headers
-      const headerMatch = line.match(/^(#{1,3})\s+(.+)$/);
-      if (headerMatch) {
-        const level = headerMatch[1].length;
-        const headerText = headerMatch[2];
-        const size = level === 1 ? 'xl' : level === 2 ? 'lg' : 'md';
-        parts.push(
-          <Text key={`header-${lineIndex}`} size={size} fw={700} mt="md" mb="xs">
-            {parseInlineMarkdown(headerText)}
-          </Text>
-        );
-        return;
-      }
-
-      // Parse inline markdown for regular lines
-      parts.push(
-        <span key={`line-${lineIndex}`}>
-          {parseInlineMarkdown(line)}
-          {lineIndex < lines.length - 1 && '\n'}
-        </span>
-      );
-    });
-
-    return parts;
-  };
-
-  const parseInlineMarkdown = (text: string): ReactNode[] => {
-    const parts: ReactNode[] = [];
     let key = 0;
 
-    // Combined pattern to match both bold and italic
-    const combinedPattern = /(\*\*(.+?)\*\*|\*(.+?)\*)/g;
+    // First, parse inline markdown (bold/italic) across the entire text
+    // This allows bold/italic to span multiple lines
+    const combinedPattern = /(\*\*(.+?)\*\*|\*([^*]+?)\*)/gs; // 's' flag allows . to match newlines
 
     let match;
     let lastIndex = 0;
@@ -63,8 +29,9 @@ export function MarkdownText({ content, style }: MarkdownTextProps) {
     while ((match = combinedPattern.exec(text)) !== null) {
       // Add text before the match
       if (match.index > lastIndex) {
+        const beforeText = text.substring(lastIndex, match.index);
         parts.push(
-          <span key={`text-${key++}`}>{text.substring(lastIndex, match.index)}</span>
+          <span key={`text-${key++}`}>{beforeText}</span>
         );
       }
 
