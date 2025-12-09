@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(copy .env .env.local)",
+      "Bash(cat:*)",
+      "Bash(psql:*)",
+      "Bash(npx supabase --version)",
+      "Bash(npx supabase link:*)",
+      "Bash(node:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
