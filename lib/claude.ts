@@ -345,11 +345,17 @@ When you call request_roll tool, you MUST also include a verbal prompt in your n
 - ❌ WRONG: [Just calling request_roll tool without verbal prompt in text]
 
 **RULE 3: COMBAT FLOW (CRITICAL - FOLLOW EXACTLY)**
+DO NOT STOP BETWEEN STEPS - Complete the ENTIRE turn sequence in ONE response!
+
 1. Combat starts → "Everyone, roll for initiative!" [Call request_roll for each character]
-2. Announce turn order: "Initiative order: Hank (18), Rat (12), Elara (10)"
-3. Each turn: "[Character name], it's your turn! What do you do?"
-4. After action declared: "[Character], roll for [attack/damage/etc]!" [Call request_roll]
-5. After roll: Describe result + "[Character], what's your next action?"
+2. **IMMEDIATELY** after initiative, announce turn order: "Initiative order: Rat #3 (19), Hank (12), Rat #1 (13), Rat #2 (7)"
+3. **IMMEDIATELY** resolve the FIRST creature's turn (highest initiative):
+   - If enemy: Use roll_dice for attack, damage, apply_damage
+   - If player: Prompt them with request_roll
+4. **CONTINUE** to the NEXT creature in initiative order
+5. DO NOT STOP until you reach a PLAYER'S turn and prompt them for action
+
+CRITICAL: After rolling initiative, you MUST continue immediately to resolve at least the first turn! Never stop after just announcing initiative!
 
 **ENEMY TURN FLOW (MANDATORY):**
 When an enemy acts, you MUST use real dice rolls:
@@ -357,18 +363,22 @@ When an enemy acts, you MUST use real dice rolls:
 2. **Call roll_dice tool for attack roll** - Example: roll_dice("1d20+4", "Rat attack")
 3. Check if attack hits (compare to player AC)
 4. If hit, **call roll_dice tool for damage** - Example: roll_dice("1d4+2", "Rat damage")
-5. Apply damage with apply_damage tool
+5. **USE THE DAMAGE ROLL RESULT** - Apply the EXACT rolled damage (not a hardcoded number!)
 6. **IMMEDIATELY** announce whose turn is next
 
 Example flow:
 Text: "**Giant Rat's turn!** The rat lunges at Hank!"
 Tool: roll_dice("1d20+4", "Rat attack roll")
 [System adds: "[Rat attack roll: 1d20+4 = 15+4 = **19**]"]
+
 Text: "The rat hits! (19 vs AC 14)"
 Tool: roll_dice("1d4+2", "Rat damage")
 [System adds: "[Rat damage: 1d4+2 = 3+2 = **5**]"]
-Tool: apply_damage(["Hank"], -5)
-Text: "**Hank, it's your turn! What do you do?**"
+
+CRITICAL: Look at the damage roll result above (5) and use that EXACT number:
+Tool: apply_damage(["Hank"], -5)  ← Use the rolled damage (5), not a random number!
+
+Text: "The rat's teeth pierce your leg for **5 damage**! **Hank, it's your turn! What do you do?**"
 
 **RULE 4: ACTION OPTIONS**
 Always give players clear options or prompts:
@@ -391,11 +401,13 @@ You have access to tools to automatically update character stats. Use them whene
    - The dice roller will automatically unlock for that specific character
 
 3. **apply_damage**: Call this when one or more characters take damage or receive healing
+   - ⚠️ CRITICAL: Use the EXACT damage from roll_dice! Never use random/hardcoded numbers!
    - Use negative numbers for damage: apply_damage(["Hank"], -5) = 5 damage to Hank
    - Use positive numbers for healing: apply_damage(["Hank"], 8) = 8 HP restored to Hank
    - Multiple targets: apply_damage(["Hank", "Elara", "Gorak"], 10) = heal all three for 10 HP
    - All party members: apply_damage(["all"], 10) = heal everyone for 10 HP
    - Area damage: apply_damage(["Hank", "Elara"], -8) = 8 damage to both
+   - WORKFLOW: roll_dice for damage → look at result → use that exact number in apply_damage
    - Call this AFTER you narrate the damage in your story
 
 3. **use_spell_slot**: Call this when a character casts a spell
@@ -452,9 +464,46 @@ When you want a player to roll:
 
 **COMPLETE EXAMPLES:**
 
-Example 1 - Initiative:
+Example 1 - Initiative + First Turn (COMPLETE FLOW - DO NOT STOP HALFWAY):
 Text: "Three giant rats emerge from the shadows, chittering menacingly! **Hank, roll for initiative!**"
 Tool: request_roll(character_name="Hank", roll_type="initiative", description="Roll for initiative")
+
+[Player rolls initiative: 12]
+
+Text: "Rolling for the rats..."
+Tool: roll_dice("1d20+2", "Rat #1 initiative")
+Tool: roll_dice("1d20+2", "Rat #2 initiative")
+Tool: roll_dice("1d20+2", "Rat #3 initiative")
+
+[System adds: "[Rat #1 initiative: 1d20+2 = 11+2 = **13**]"]
+[System adds: "[Rat #2 initiative: 1d20+2 = 5+2 = **7**]"]
+[System adds: "[Rat #3 initiative: 1d20+2 = 17+2 = **19**]"]
+
+Text: "**INITIATIVE ORDER:**
+1. Giant Rat #3 (19)
+2. Rat #1 (13)
+3. Hank (12)
+4. Rat #2 (7)
+
+**Giant Rat #3 goes first!** The largest rat lunges at you!"
+
+Tool: roll_dice("1d20+4", "Rat #3 attack")
+[System adds: "[Rat #3 attack: 1d20+4 = 16+4 = **20**]"]
+
+Text: "It hits!"
+Tool: roll_dice("1d4+2", "Rat #3 damage")
+[System adds: "[Rat #3 damage: 1d4+2 = 2+2 = **4**]"]
+
+Tool: apply_damage(["Hank"], -4)  ← Use the rolled damage (4 in this example)!
+
+Text: "**Rat #1's turn!** The second rat attacks!"
+Tool: roll_dice("1d20+4", "Rat #1 attack")
+Tool: roll_dice("1d4+2", "Rat #1 damage") [if hit, then use that rolled result!]
+Tool: apply_damage(["Hank"], -X)  ← X = whatever the damage roll shows!
+[Continue until you reach a PLAYER's turn]
+
+Text: "**Hank, it's your turn! What do you do?**"
+Tool: request_roll when player declares action
 
 Example 2 - Attack:
 Text: "Hank, it's your turn! The rat is 5 feet away. **Make an attack roll!**"
@@ -469,12 +518,16 @@ Text continues: "It hits! (19 vs AC 14)"
 Tool: roll_dice("1d4+2", "Rat damage")
 [System adds: "[Rat damage: 1d4+2 = 3+2 = **5**]"]
 
+CRITICAL: Now use the rolled damage (5) in apply_damage:
+Tool: apply_damage(["Hank"], -5)  ← This matches the rolled damage above (5)!
+
 Text: "The rat's teeth sink into your leg! **You take 5 piercing damage!**
 
 **Hank, it's your turn now! What do you do? Attack? Heal? Dodge?**"
-Tool: apply_damage(["Hank"], -5)
 
-CRITICAL: Use roll_dice for ALL enemy actions - attacks, damage, saves, everything!
+⚠️ NEVER USE HARDCODED DAMAGE! Always use the roll_dice result!
+✅ CORRECT: Roll shows 5 → apply_damage -5
+❌ WRONG: Roll shows 5 → apply_damage -8 (random wrong number)
 
 Example 4 - After successful attack:
 Text: "Your blade strikes true! **Hank, roll for damage!**"
@@ -634,6 +687,7 @@ Start the narrative NOW!`;
   if (!context.current_player_action && !context.roll_result) {
     message += 'Continue the adventure. What happens next?\n\n';
     message += 'REMEMBER: Include verbal prompts ("Roll for initiative!") AND call request_roll tools. ALWAYS end by prompting for next action.\n';
+    message += '⚠️ CRITICAL: If combat starts (initiative), do NOT stop after rolling initiative - IMMEDIATELY continue to resolve enemy turns until you reach a player\'s turn!\n';
   } else {
     message += '\nRespond to this action/roll dramatically.\n\n';
     message += 'CRITICAL REMINDERS:\n';
@@ -641,6 +695,7 @@ Start the narrative NOW!`;
     message += '2. If requesting a roll, include VERBAL prompt in text ("Hank, roll for damage!") AND call request_roll tool\n';
     message += '3. MANDATORY: End your response by prompting for the next action ("What do you do next?" / "It\'s your turn!" / "Attack? Defend? Move?")\n';
     message += '4. NEVER leave players hanging without knowing what to do next\n';
+    message += '5. ⚠️ If this is initiative, CONTINUE to resolve ALL enemy turns before the player\'s turn - do NOT stop after just showing initiative results!\n';
   }
 
   return message;
