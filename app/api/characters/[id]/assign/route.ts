@@ -12,7 +12,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     }
 
     // Verify character exists and is in the session's character pool
-    const { data: sessionChar, error: sessionCharError } = await supabase
+    const { error: sessionCharError } = await supabase
       .from('session_characters')
       .select('character_id')
       .eq('session_id', session_id)
