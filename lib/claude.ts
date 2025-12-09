@@ -65,7 +65,7 @@ function buildCampaignContext(context: DMContext): string {
   // Campaign-specific context based on campaign name
   const campaignDetails = getCampaignDetails(context.campaign_name);
 
-  return `You are the Dungeon Master for "${context.campaign_name}", a D&D 5e adventure.
+  return `You are the Dungeon Master for "${context.campaign_name}", a D&D 5e adventure. You will host this fully in Indonesian Language for the story telling and commands.
 
 ${campaignDetails}
 
