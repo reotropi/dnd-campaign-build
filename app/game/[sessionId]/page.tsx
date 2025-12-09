@@ -25,14 +25,32 @@ function GameContent() {
   const { session } = useSession(sessionId);
   const { members } = useSessionMembers(sessionId);
   const userMember = members.find((m) => m.user_id === user?.id);
-  const { character, updateHP } = useCharacter(userMember?.character_id || null);
+  const { character } = useCharacter(userMember?.character_id || null);
   const { messages, sendMessage, sendDMMessage, sendOOCMessage, loading: messagesLoading } = useGameChat(sessionId);
 
   const [rollPrompt, setRollPrompt] = useState<RollPrompt | null>(null);
   const [dmLoading, setDmLoading] = useState(false);
   const [initialMessageSent, setInitialMessageSent] = useState(false);
+  const [pendingRoll, setPendingRoll] = useState<RollData | null>(null);
 
   const isHost = session?.host_id === user?.id;
+
+  // Check if last message has roll prompt data
+  useEffect(() => {
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+
+      // Check if last message is from DM and has roll_data (which contains roll prompts)
+      if (lastMessage.message_type === 'dm' && lastMessage.roll_data) {
+        const rollData = lastMessage.roll_data as any;
+
+        // If roll_data has a rollPrompts field (we'll need to modify the API to store this)
+        if (rollData.rollPrompt) {
+          setRollPrompt(rollData.rollPrompt);
+        }
+      }
+    }
+  }, [messages]);
 
   // Trigger initial DM narration when game starts
   useEffect(() => {
@@ -62,12 +80,13 @@ function GameContent() {
             throw new Error(data.error || 'Failed to get DM response');
           }
 
-          // Send initial DM message
-          await sendDMMessage(data.content);
+          // Send initial DM message with roll prompt if present
+          const firstRollPrompt = data.rollPrompts && data.rollPrompts.length > 0 ? data.rollPrompts[0] : null;
+          await sendDMMessage(data.content, firstRollPrompt);
 
           // Update roll prompts if DM asks for rolls
-          if (data.rollPrompts && data.rollPrompts.length > 0) {
-            setRollPrompt(data.rollPrompts[0]); // Set first prompt
+          if (firstRollPrompt) {
+            setRollPrompt(firstRollPrompt);
           }
         } catch (error: any) {
           console.error('Failed to send initial DM message:', error);
@@ -107,12 +126,13 @@ function GameContent() {
         throw new Error(data.error || 'Failed to get DM response');
       }
 
-      // Send DM response as message
-      await sendDMMessage(data.content);
+      // Send DM response as message with roll prompt if present
+      const firstRollPrompt = data.rollPrompts && data.rollPrompts.length > 0 ? data.rollPrompts[0] : null;
+      await sendDMMessage(data.content, firstRollPrompt);
 
       // Update roll prompts if DM asks for rolls, otherwise clear it
-      if (data.rollPrompts && data.rollPrompts.length > 0) {
-        setRollPrompt(data.rollPrompts[0]); // Set first prompt
+      if (firstRollPrompt) {
+        setRollPrompt(firstRollPrompt); // Set first prompt
       } else {
         setRollPrompt(null); // Clear roll prompt if DM doesn't need more rolls
       }
@@ -127,9 +147,12 @@ function GameContent() {
     }
   };
 
-  const handleRoll = async (rollData: RollData) => {
-    const rollDescription = `${character?.name} rolled ${rollData.total} for ${rollData.roll_type}`;
-    await handleSendMessage(rollDescription, rollData);
+  const handleRoll = (rollData: RollData) => {
+    setPendingRoll(rollData);
+  };
+
+  const handleClearRoll = () => {
+    setPendingRoll(null);
   };
 
   if (!character) {
@@ -146,7 +169,7 @@ function GameContent() {
         {/* Left Column - Character & Dice */}
         <Grid.Col span={{ base: 12, md: 3 }}>
           <Stack gap="md">
-            <CharacterPanel character={character} onUpdateHP={updateHP} />
+            <CharacterPanel character={character} />
             <DiceRoller character={character} rollPrompt={rollPrompt} onRoll={handleRoll} />
             {isHost && <HostControls sessionId={sessionId} />}
           </Stack>
@@ -154,7 +177,13 @@ function GameContent() {
 
         {/* Middle Column - Chat */}
         <Grid.Col span={{ base: 12, md: 6 }}>
-          <ChatBox messages={messages} onSendMessage={handleSendMessage} loading={dmLoading} />
+          <ChatBox
+            messages={messages}
+            onSendMessage={handleSendMessage}
+            loading={dmLoading}
+            pendingRoll={pendingRoll}
+            onClearRoll={handleClearRoll}
+          />
         </Grid.Col>
 
         {/* Right Column - Party & OOC Chat */}

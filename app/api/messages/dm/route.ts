@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
-    const { session_id, content } = await request.json();
+    const { session_id, content, roll_prompt } = await request.json();
 
     if (!session_id || !content) {
       return NextResponse.json(
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       character_id: null,
       message_type: 'dm',
       content,
-      roll_data: null,
+      roll_data: roll_prompt ? { rollPrompt: roll_prompt } : null,
     }).select().single();
 
     if (error) {

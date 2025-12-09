@@ -141,7 +141,7 @@ export function useGameChat(sessionId: string | null) {
   );
 
   const sendDMMessage = useCallback(
-    async (content: string) => {
+    async (content: string, rollPrompt?: any) => {
       if (!sessionId) return;
 
       try {
@@ -153,6 +153,7 @@ export function useGameChat(sessionId: string | null) {
           body: JSON.stringify({
             session_id: sessionId,
             content,
+            roll_prompt: rollPrompt,
           }),
         });
 

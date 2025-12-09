@@ -55,6 +55,7 @@ export interface Character {
   weapons: Weapon[];
   spells: Spell[];
   spell_slots: SpellSlots;
+  max_spell_slots?: SpellSlots; // Maximum spell slots for restoration
   features: Feature[];
   inventory: InventoryItem[];
   notes?: string;

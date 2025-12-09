@@ -20,6 +20,11 @@ export async function POST(request: NextRequest) {
       sessionId || null
     );
 
+    // Set max_spell_slots to current spell_slots for restoration purposes
+    if (dbCharacter.spell_slots) {
+      (dbCharacter as any).max_spell_slots = { ...dbCharacter.spell_slots };
+    }
+
     const supabaseAdmin = getSupabaseAdmin();
 
     // Insert into database using service role (bypasses RLS)

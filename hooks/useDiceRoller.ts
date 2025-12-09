@@ -22,7 +22,7 @@ export function useDiceRoller(character: Character | null, rollPrompt: RollPromp
   const canRoll = (): boolean => {
     if (!character) return false;
     if (isLocked) return false;
-    if (!rollPrompt) return true; // Allow free rolling when DM hasn't prompted
+    if (!rollPrompt) return false; // Block rolling when DM hasn't prompted
     return rollPrompt.character_name === character.name;
   };
 

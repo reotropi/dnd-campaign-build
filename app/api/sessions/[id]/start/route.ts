@@ -34,14 +34,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     if (error) throw error;
 
-    // Send initial DM message
-    await supabase.from('messages').insert({
-      session_id: params.id,
-      user_id: null,
-      character_id: null,
-      message_type: 'dm',
-      content: 'Welcome, brave adventurers! Your journey begins now. What do you do?',
-    });
+    // No initial message - let the game page trigger Claude's immersive opening
 
     return NextResponse.json({ session: data });
   } catch (error: any) {

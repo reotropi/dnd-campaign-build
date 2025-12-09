@@ -66,6 +66,68 @@ export async function POST(request: NextRequest) {
       character_name: character_name,
     });
 
+    // Apply character updates (HP changes, spell slot consumption)
+    if (dmResponse.characterUpdates && dmResponse.characterUpdates.length > 0) {
+      for (const update of dmResponse.characterUpdates) {
+        const character = characters.find(c => c.name === update.character_name);
+        if (!character) continue;
+
+        const updates: any = {};
+
+        // Apply HP change
+        if (update.hp_change !== undefined) {
+          const newHP = Math.max(0, Math.min(
+            character.current_hp + update.hp_change,
+            character.max_hp
+          ));
+          updates.current_hp = newHP;
+        }
+
+        // Apply spell slot consumption
+        if (update.spell_slot_used) {
+          const level = update.spell_slot_used.level;
+          const slotKey = `level_${level}` as keyof typeof character.spell_slots;
+          const currentSlots = character.spell_slots[slotKey] || 0;
+
+          if (currentSlots > 0) {
+            updates.spell_slots = {
+              ...character.spell_slots,
+              [slotKey]: currentSlots - 1,
+            };
+          }
+        }
+
+        // Apply long rest (restore all HP and spell slots)
+        if (update.long_rest) {
+          updates.current_hp = character.max_hp;
+
+          // Restore spell slots from max_spell_slots if available
+          const maxSlots = character.max_spell_slots || character.spell_slots;
+          if (maxSlots) {
+            updates.spell_slots = { ...maxSlots };
+          }
+        }
+
+        // Apply short rest (partial HP recovery)
+        if (update.short_rest) {
+          const recoveredHP = Math.min(
+            character.current_hp + update.short_rest.hp_recovered,
+            character.max_hp
+          );
+          updates.current_hp = recoveredHP;
+        }
+
+        // Update character if there are changes
+        if (Object.keys(updates).length > 0) {
+          await supabase
+            .from('characters')
+            .update(updates)
+            .eq('id', character.id);
+        }
+      }
+    }
+
+    // Return the DM response with structured data
     return NextResponse.json({
       content: dmResponse.response,
       rollPrompts: dmResponse.rollPrompts,
