@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { Character, Message, RollData, RollPrompt, GameState } from '@/types';
+import { rollDice } from './dice';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
@@ -86,6 +87,24 @@ export async function getDMResponse(context: DMContext): Promise<{
               },
             },
             required: ['character_names', 'amount'],
+          },
+        },
+        {
+          name: 'roll_dice',
+          description: 'Roll dice for enemies, NPCs, or any DM-controlled rolls. Returns actual random results.',
+          input_schema: {
+            type: 'object',
+            properties: {
+              dice_notation: {
+                type: 'string',
+                description: 'Dice notation like "1d20", "2d6+3", "1d8+2". Can include modifiers.',
+              },
+              roll_name: {
+                type: 'string',
+                description: 'Description of the roll (e.g., "Rat attack roll", "Goblin damage")',
+              },
+            },
+            required: ['dice_notation', 'roll_name'],
           },
         },
         {
@@ -198,6 +217,27 @@ export async function getDMResponse(context: DMContext): Promise<{
             character_name: input.character_name,
             short_rest: { hp_recovered: input.hp_recovered },
           });
+        } else if (block.name === 'roll_dice') {
+          const input = block.input as any;
+          const diceNotation = input.dice_notation as string;
+          const rollName = input.roll_name as string;
+
+          // Parse dice notation (e.g., "1d20+4" → {count: 1, sides: 20, modifier: 4})
+          const match = diceNotation.match(/(\d+)d(\d+)([+\-]\d+)?/i);
+          if (match) {
+            const count = parseInt(match[1]);
+            const sides = parseInt(match[2]);
+            const modifier = match[3] ? parseInt(match[3]) : 0;
+
+            // Roll the dice
+            const rolls = rollDice(count, sides);
+            const diceTotal = rolls.reduce((sum, r) => sum + r, 0);
+            const total = diceTotal + modifier;
+
+            // Inject the roll result into the response text
+            const rollResult = `[${rollName}: ${count}d${sides}${modifier >= 0 ? '+' : ''}${modifier !== 0 ? modifier : ''} = ${rolls.join('+')}${modifier !== 0 ? ` ${modifier >= 0 ? '+' : ''}${modifier}` : ''} = **${total}**]`;
+            responseText += `\n${rollResult}`;
+          }
         }
       }
     }
@@ -304,12 +344,31 @@ When you call request_roll tool, you MUST also include a verbal prompt in your n
 - ✅ CORRECT: "Hank, make an attack roll against the rat!" [AND call request_roll tool]
 - ❌ WRONG: [Just calling request_roll tool without verbal prompt in text]
 
-**RULE 3: COMBAT FLOW**
+**RULE 3: COMBAT FLOW (CRITICAL - FOLLOW EXACTLY)**
 1. Combat starts → "Everyone, roll for initiative!" [Call request_roll for each character]
 2. Announce turn order: "Initiative order: Hank (18), Rat (12), Elara (10)"
 3. Each turn: "[Character name], it's your turn! What do you do?"
 4. After action declared: "[Character], roll for [attack/damage/etc]!" [Call request_roll]
 5. After roll: Describe result + "[Character], what's your next action?"
+
+**ENEMY TURN FLOW (MANDATORY):**
+When an enemy acts, you MUST use real dice rolls:
+1. Announce enemy action
+2. **Call roll_dice tool for attack roll** - Example: roll_dice("1d20+4", "Rat attack")
+3. Check if attack hits (compare to player AC)
+4. If hit, **call roll_dice tool for damage** - Example: roll_dice("1d4+2", "Rat damage")
+5. Apply damage with apply_damage tool
+6. **IMMEDIATELY** announce whose turn is next
+
+Example flow:
+Text: "**Giant Rat's turn!** The rat lunges at Hank!"
+Tool: roll_dice("1d20+4", "Rat attack roll")
+[System adds: "[Rat attack roll: 1d20+4 = 15+4 = **19**]"]
+Text: "The rat hits! (19 vs AC 14)"
+Tool: roll_dice("1d4+2", "Rat damage")
+[System adds: "[Rat damage: 1d4+2 = 3+2 = **5**]"]
+Tool: apply_damage(["Hank"], -5)
+Text: "**Hank, it's your turn! What do you do?**"
 
 **RULE 4: ACTION OPTIONS**
 Always give players clear options or prompts:
@@ -321,11 +380,17 @@ Always give players clear options or prompts:
 CRITICAL - AUTOMATIC STAT TRACKING:
 You have access to tools to automatically update character stats. Use them whenever appropriate:
 
-1. **request_roll**: Call this when a character needs to make a dice roll
+1. **roll_dice**: Call this to roll dice for enemies, NPCs, or DM-controlled actions
+   - Use for enemy attacks, damage, saves, etc.
+   - Returns REAL random results (not simulated)
+   - Examples: roll_dice("1d20+4", "Rat attack roll"), roll_dice("1d4+2", "Rat damage")
+   - The result will be automatically inserted into your response
+
+2. **request_roll**: Call this when a PLAYER CHARACTER needs to make a dice roll
    - Use for attacks, damage, saves, skill checks, etc.
    - The dice roller will automatically unlock for that specific character
 
-2. **apply_damage**: Call this when one or more characters take damage or receive healing
+3. **apply_damage**: Call this when one or more characters take damage or receive healing
    - Use negative numbers for damage: apply_damage(["Hank"], -5) = 5 damage to Hank
    - Use positive numbers for healing: apply_damage(["Hank"], 8) = 8 HP restored to Hank
    - Multiple targets: apply_damage(["Hank", "Elara", "Gorak"], 10) = heal all three for 10 HP
@@ -395,9 +460,21 @@ Example 2 - Attack:
 Text: "Hank, it's your turn! The rat is 5 feet away. **Make an attack roll!**"
 Tool: request_roll(character_name="Hank", roll_type="attack", description="Attack the giant rat")
 
-Example 3 - After taking damage:
-Text: "The rat's teeth sink into your leg! **You take 5 piercing damage!** The pain is sharp but manageable. **What's your next move? Do you attack back, or fall back to defend?**"
+Example 3 - Enemy turn with REAL DICE ROLLS (COMPLETE FLOW):
+Text: "**Giant Rat #1's turn!** The rat lunges at Hank, teeth bared!"
+Tool: roll_dice("1d20+4", "Rat attack roll")
+[System automatically adds to response: "[Rat attack roll: 1d20+4 = 15+4 = **19**]"]
+
+Text continues: "It hits! (19 vs AC 14)"
+Tool: roll_dice("1d4+2", "Rat damage")
+[System adds: "[Rat damage: 1d4+2 = 3+2 = **5**]"]
+
+Text: "The rat's teeth sink into your leg! **You take 5 piercing damage!**
+
+**Hank, it's your turn now! What do you do? Attack? Heal? Dodge?**"
 Tool: apply_damage(["Hank"], -5)
+
+CRITICAL: Use roll_dice for ALL enemy actions - attacks, damage, saves, everything!
 
 Example 4 - After successful attack:
 Text: "Your blade strikes true! **Hank, roll for damage!**"
