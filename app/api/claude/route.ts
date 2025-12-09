@@ -22,18 +22,30 @@ export async function POST(request: NextRequest) {
 
     if (sessionError) throw sessionError;
 
-    // Fetch characters in session via junction table
+    // Fetch characters in session via junction table with session-specific state
     const { data: sessionChars, error: sessionCharsError } = await supabase
       .from('session_characters')
       .select(`
+        id,
+        current_hp,
+        current_spell_slots,
         character:characters (*)
       `)
       .eq('session_id', session_id);
 
     if (sessionCharsError) throw sessionCharsError;
 
-    // Extract character data from junction table response
-    const characters = (sessionChars?.map((sc: any) => sc.character).filter(Boolean) || []) as Character[];
+    // Merge session-specific state with character data
+    const characters = (sessionChars?.map((sc: any) => {
+      if (!sc.character) return null;
+      return {
+        ...sc.character,
+        // Override with session-specific state
+        current_hp: sc.current_hp !== null ? sc.current_hp : sc.character.current_hp,
+        spell_slots: Object.keys(sc.current_spell_slots || {}).length > 0 ? sc.current_spell_slots : sc.character.spell_slots,
+        session_character_id: sc.id, // Store junction table ID for updates
+      };
+    }).filter(Boolean) || []) as Character[];
 
     // Fetch recent messages
     const { data: messages, error: messagesError } = await supabase
@@ -64,13 +76,15 @@ export async function POST(request: NextRequest) {
       roll_result: roll_data,
       sender_name: sender_name,
       character_name: character_name,
+      dm_language: session.dm_language || 'indonesian',
     });
 
     // Apply character updates (HP changes, spell slot consumption)
+    // Updates are applied to session_characters table to maintain session-specific state
     if (dmResponse.characterUpdates && dmResponse.characterUpdates.length > 0) {
       for (const update of dmResponse.characterUpdates) {
         const character = characters.find(c => c.name === update.character_name);
-        if (!character) continue;
+        if (!character || !(character as any).session_character_id) continue;
 
         const updates: any = {};
 
@@ -90,7 +104,7 @@ export async function POST(request: NextRequest) {
           const currentSlots = character.spell_slots[slotKey] || 0;
 
           if (currentSlots > 0) {
-            updates.spell_slots = {
+            updates.current_spell_slots = {
               ...character.spell_slots,
               [slotKey]: currentSlots - 1,
             };
@@ -104,7 +118,7 @@ export async function POST(request: NextRequest) {
           // Restore spell slots from max_spell_slots if available
           const maxSlots = character.max_spell_slots || character.spell_slots;
           if (maxSlots) {
-            updates.spell_slots = { ...maxSlots };
+            updates.current_spell_slots = { ...maxSlots };
           }
         }
 
@@ -117,12 +131,12 @@ export async function POST(request: NextRequest) {
           updates.current_hp = recoveredHP;
         }
 
-        // Update character if there are changes
+        // Update session-specific character state if there are changes
         if (Object.keys(updates).length > 0) {
           await supabase
-            .from('characters')
+            .from('session_characters')
             .update(updates)
-            .eq('id', character.id);
+            .eq('id', (character as any).session_character_id);
         }
       }
     }

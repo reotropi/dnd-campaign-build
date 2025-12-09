@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { TextInput, NumberInput, Button, Stack, Title, MultiSelect } from '@mantine/core';
+import { TextInput, NumberInput, Button, Stack, Title, MultiSelect, Select } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { Character } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
@@ -19,6 +19,7 @@ export function CreateSessionForm({ availableCharacters }: CreateSessionFormProp
     campaign_name: '',
     max_players: 6,
     character_ids: [] as string[],
+    dm_language: 'indonesian' as 'indonesian' | 'english',
   });
 
   const characterOptions = availableCharacters.map((char) => ({
@@ -83,6 +84,18 @@ export function CreateSessionForm({ availableCharacters }: CreateSessionFormProp
           max={8}
           value={formData.max_players}
           onChange={(val) => setFormData({ ...formData, max_players: Number(val) || 6 })}
+        />
+
+        <Select
+          label="DM Language"
+          description="Choose the language for AI Dungeon Master narration"
+          required
+          value={formData.dm_language}
+          onChange={(val) => setFormData({ ...formData, dm_language: (val as 'indonesian' | 'english') || 'indonesian' })}
+          data={[
+            { value: 'indonesian', label: 'Indonesian (Bahasa Indonesia)' },
+            { value: 'english', label: 'English' },
+          ]}
         />
 
         <MultiSelect

@@ -17,7 +17,7 @@ function generateSessionCode(): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const { campaign_name, max_players = 6, character_ids, created_by } = await request.json();
+    const { campaign_name, max_players = 6, character_ids, created_by, dm_language = 'indonesian' } = await request.json();
 
     if (!created_by) {
       return NextResponse.json({ error: 'Unauthorized - User ID required' }, { status: 401 });
@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
         session_code: sessionCode,
         max_players,
         status: 'lobby',
+        dm_language,
       })
       .select()
       .single();

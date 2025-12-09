@@ -3,6 +3,7 @@
 import { Card, Text, Group, Badge, Stack } from '@mantine/core';
 import { MessageWithDetails } from '@/types';
 import { RollDisplay } from './RollDisplay';
+import { MarkdownText } from './MarkdownText';
 
 interface ChatMessageProps {
   message: MessageWithDetails;
@@ -42,7 +43,11 @@ export function ChatMessage({ message }: ChatMessageProps) {
           </Text>
         </Group>
 
-        <Text style={{ whiteSpace: 'pre-wrap' }}>{message.content}</Text>
+        {isDM ? (
+          <MarkdownText content={message.content} />
+        ) : (
+          <Text style={{ whiteSpace: 'pre-wrap' }}>{message.content}</Text>
+        )}
 
         {isRoll && message.roll_data && (
           <div>

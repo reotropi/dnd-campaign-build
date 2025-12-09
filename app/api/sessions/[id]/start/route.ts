@@ -34,6 +34,41 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     if (error) throw error;
 
+    // Initialize session-specific character state (HP and spell slots)
+    // This allows the same character to be in multiple sessions with different stats
+    const { data: sessionChars, error: sessionCharsError } = await supabase
+      .from('session_characters')
+      .select(`
+        id,
+        character_id,
+        character:characters (
+          max_hp,
+          spell_slots,
+          max_spell_slots
+        )
+      `)
+      .eq('session_id', params.id);
+
+    if (sessionCharsError) {
+      console.error('Error fetching characters for session state init:', sessionCharsError);
+    } else if (sessionChars) {
+      // Initialize session-specific state for each character
+      for (const sc of sessionChars) {
+        const character = (sc as any).character;
+        if (character) {
+          const updates: any = {
+            current_hp: character.max_hp, // Start with full HP
+            current_spell_slots: character.max_spell_slots || character.spell_slots || {}, // Full spell slots
+          };
+
+          await supabase
+            .from('session_characters')
+            .update(updates)
+            .eq('id', sc.id);
+        }
+      }
+    }
+
     // No initial message - let the game page trigger Claude's immersive opening
 
     return NextResponse.json({ session: data });

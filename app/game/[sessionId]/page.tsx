@@ -12,7 +12,7 @@ import { HostControls } from '@/components/game/HostControls';
 import { OOCChat } from '@/components/game/OOCChat';
 import { useAuth } from '@/hooks/useAuth';
 import { useSession, useSessionMembers } from '@/hooks/useSession';
-import { useCharacter } from '@/hooks/useCharacter';
+import { useSessionCharacter } from '@/hooks/useSessionCharacter';
 import { useGameChat } from '@/hooks/useGameChat';
 import { RollData, RollPrompt } from '@/types';
 import { notifications } from '@mantine/notifications';
@@ -25,7 +25,7 @@ function GameContent() {
   const { session } = useSession(sessionId);
   const { members } = useSessionMembers(sessionId);
   const userMember = members.find((m) => m.user_id === user?.id);
-  const { character } = useCharacter(userMember?.character_id || null);
+  const { character } = useSessionCharacter(sessionId, userMember?.character_id || null);
   const { messages, sendMessage, sendDMMessage, sendOOCMessage, loading: messagesLoading } = useGameChat(sessionId);
 
   const [rollPrompt, setRollPrompt] = useState<RollPrompt | null>(null);
