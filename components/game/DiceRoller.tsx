@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, Card, Group, Select, Stack, Text, NumberInput } from '@mantine/core';
+import { Button, Card, Select, Stack, Text, NumberInput } from '@mantine/core';
 import { RollType, AdvantageType, Character, RollPrompt } from '@/types';
 import { useDiceRoller } from '@/hooks/useDiceRoller';
 

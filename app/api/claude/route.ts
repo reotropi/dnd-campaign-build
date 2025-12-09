@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { getDMResponse } from '@/lib/claude';
+import { Character } from '@/types';
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
     if (sessionCharsError) throw sessionCharsError;
 
     // Extract character data from junction table response
-    const characters = sessionChars?.map(sc => sc.character).filter(Boolean) || [];
+    const characters = (sessionChars?.map((sc: any) => sc.character).filter(Boolean) || []) as Character[];
 
     // Fetch recent messages
     const { data: messages, error: messagesError } = await supabase

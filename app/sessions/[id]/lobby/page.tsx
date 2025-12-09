@@ -7,7 +7,6 @@ import { ProtectedRoute } from '@/components/layout/ProtectedRoute';
 import { SessionLobby } from '@/components/session/SessionLobby';
 import { useAuth } from '@/hooks/useAuth';
 import { useSession, useSessionMembers } from '@/hooks/useSession';
-import { useCharacters } from '@/hooks/useCharacter';
 import { SessionMemberWithDetails, Character } from '@/types';
 import { supabase } from '@/lib/supabase';
 

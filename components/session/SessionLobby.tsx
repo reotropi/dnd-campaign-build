@@ -1,11 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Stack, Title, Text, Button, Card, Group, Badge, SimpleGrid, Divider } from '@mantine/core';
+import { Stack, Title, Text, Button, Card, Group, Badge, SimpleGrid } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useRouter } from 'next/navigation';
 import { Session, SessionMemberWithDetails, Character } from '@/types';
-import { useAuth } from '@/hooks/useAuth';
 import { CharacterSelector } from '../character/CharacterSelector';
 import { SessionCharacterManager } from './SessionCharacterManager';
 import { supabase } from '@/lib/supabase';
@@ -30,7 +29,6 @@ export function SessionLobby({
   onCharactersUpdate,
 }: SessionLobbyProps) {
   const router = useRouter();
-  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
 
   const hasSelectedCharacter = userMember?.character_id !== null;
@@ -73,13 +71,16 @@ export function SessionLobby({
     if (!userMember) return;
 
     try {
-      const { data, error } = await fetch(`/api/sessions/${session.id}/ready`, {
+      const response = await fetch(`/api/sessions/${session.id}/ready`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_ready: !userMember.is_ready }),
       });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to update ready status');
+      }
 
       notifications.show({
         title: 'Success',

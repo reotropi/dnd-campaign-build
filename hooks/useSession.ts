@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Session, SessionMember, SessionMemberWithDetails } from '@/types';
+import { Session, SessionMemberWithDetails } from '@/types';
 
 export function useSession(sessionId: string | null) {
   const [session, setSession] = useState<Session | null>(null);

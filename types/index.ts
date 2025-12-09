@@ -88,7 +88,7 @@ export interface Message {
   session_id: string;
   user_id: string | null;
   character_id: string | null;
-  message_type: 'chat' | 'dm' | 'roll' | 'system';
+  message_type: 'chat' | 'dm' | 'roll' | 'system' | 'ooc';
   content: string;
   roll_data?: RollData;
   created_at: string;

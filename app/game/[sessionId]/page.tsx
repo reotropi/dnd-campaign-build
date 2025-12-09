@@ -154,7 +154,7 @@ function GameContent() {
 
         {/* Middle Column - Chat */}
         <Grid.Col span={{ base: 12, md: 6 }}>
-          <ChatBox messages={messages} onSendMessage={handleSendMessage} onSendRoll={handleRoll} loading={dmLoading} />
+          <ChatBox messages={messages} onSendMessage={handleSendMessage} loading={dmLoading} />
         </Grid.Col>
 
         {/* Right Column - Party & OOC Chat */}

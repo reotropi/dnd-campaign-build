@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Message, MessageWithDetails, RollData } from '@/types';
+import { MessageWithDetails, RollData } from '@/types';
 
 export function useGameChat(sessionId: string | null) {
   const [messages, setMessages] = useState<MessageWithDetails[]>([]);

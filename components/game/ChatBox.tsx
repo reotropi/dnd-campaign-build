@@ -8,12 +8,11 @@ import { ChatMessage } from './ChatMessage';
 interface ChatBoxProps {
   messages: MessageWithDetails[];
   onSendMessage: (content: string, rollData?: RollData) => void;
-  onSendRoll: (content: string, rollData: RollData) => void;
+  loading?: boolean;
 }
 
-export function ChatBox({ messages, onSendMessage, onSendRoll }: ChatBoxProps) {
+export function ChatBox({ messages, onSendMessage }: ChatBoxProps) {
   const [messageInput, setMessageInput] = useState('');
-  const scrollRef = useRef<HTMLDivElement>(null);
   const viewport = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new messages arrive
