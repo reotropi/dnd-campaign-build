@@ -38,6 +38,7 @@ interface ClaudeRequest {
   combat_state: SimpleCombatState | null;
   recent_narrative: string[]; // Last 5 narrative messages
   language?: 'indonesian' | 'english'; // Language setting
+  active_characters?: string[]; // Names of characters whose players are in the session
 }
 
 interface ClaudeResponse {
@@ -172,16 +173,19 @@ function buildIndonesianPrompt(): string {
 
    **A. Start Combat:**
    - Return: \`"combat_update": { "start_combat": { "enemies": [...] } }\`
-   - Minta semua player roll initiative
+   - Minta HANYA player yang AKTIF (ada di "Active Players in This Session") untuk roll initiative
+   - JANGAN minta roll dari player yang tidak ada di list Active Players!
 
    **B. Waiting for Initiative:**
-   - Acknowledge roll yang masuk
-   - Tunggu sampai semua player roll
+   - Acknowledge roll yang masuk dengan NARASI DRAMATIK
+   - JANGAN cuma bilang "tunggu" - berikan cerita menarik sambil menunggu!
+   - Kalau sudah semua ACTIVE players roll, lanjut ke step C
+   - Kalau belum semua roll, tetap beri narasi menarik (describe musuh, suasana, dll)
 
    **C. All Initiative In:**
    - Roll initiative untuk semua musuh
    - Umumkan turn order
-   - Mulai Round 1
+   - Mulai Round 1 dengan narasi dramatik
 
    **D. Enemy Turn:**
    - Roll attack: \`"dm_rolls": [{ "name": "Rat #2 attack", "dice": "1d20+4", "result": 15 }]\`
@@ -198,11 +202,13 @@ function buildIndonesianPrompt(): string {
    - Advance turn
 
 4. **ATURAN WAJIB:**
-   - ✓ Selalu include "narrative" untuk cerita
+   - ✓ Selalu include "narrative" untuk cerita - JANGAN PERNAH BERHENTI BERCERITA!
    - ✓ Satu enemy turn = roll attack + roll damage + apply damage + advance turn (semua dalam 1 response)
    - ✓ Jangan berhenti di tengah round
    - ✓ Update combat_state lewat "combat_update"
    - ✓ Respons HARUS valid JSON
+   - ✓ HANYA request roll dari character yang ada di "Active Players in This Session"
+   - ✓ Sambil tunggu roll, tetap beri narasi dramatik tentang situasi/musuh/suasana
 
 5. **CONTOH ENEMY:**
    - Giant Rat: HP 7, AC 8, Attack +4, Damage 1d4+2
@@ -245,16 +251,19 @@ function buildEnglishPrompt(): string {
 
    **A. Start Combat:**
    - Return: \`"combat_update": { "start_combat": { "enemies": [...] } }\`
-   - Request all players to roll initiative
+   - Request ONLY ACTIVE players (listed in "Active Players in This Session") to roll initiative
+   - DO NOT request rolls from players not in the Active Players list!
 
    **B. Waiting for Initiative:**
-   - Acknowledge the roll that came in
-   - Wait until all players have rolled
+   - Acknowledge the roll with DRAMATIC NARRATION
+   - DON'T just say "waiting" - provide engaging story while waiting!
+   - If all ACTIVE players have rolled, proceed to step C
+   - If not all have rolled yet, still provide interesting narration (describe enemies, atmosphere, etc)
 
    **C. All Initiative In:**
    - Roll initiative for all enemies
    - Announce turn order
-   - Start Round 1
+   - Start Round 1 with dramatic narration
 
    **D. Enemy Turn:**
    - Roll attack: \`"dm_rolls": [{ "name": "Rat #2 attack", "dice": "1d20+4", "result": 15 }]\`
@@ -271,11 +280,13 @@ function buildEnglishPrompt(): string {
    - Advance turn
 
 4. **MANDATORY RULES:**
-   - ✓ Always include "narrative" for the story
+   - ✓ Always include "narrative" for the story - NEVER STOP NARRATING!
    - ✓ One enemy turn = roll attack + roll damage + apply damage + advance turn (all in 1 response)
    - ✓ Don't stop mid-round
    - ✓ Update combat_state via "combat_update"
    - ✓ Response MUST be valid JSON
+   - ✓ ONLY request rolls from characters in "Active Players in This Session"
+   - ✓ While waiting for rolls, continue providing dramatic narration about the situation/enemies/atmosphere
 
 5. **EXAMPLE ENEMIES:**
    - Giant Rat: HP 7, AC 8, Attack +4, Damage 1d4+2
@@ -290,6 +301,13 @@ Focus: Dramatic narrative + Structured JSON + Simple combat!`;
 
 function buildUserMessage(request: ClaudeRequest): string {
   let message = '';
+
+  // Add active characters context
+  if (request.active_characters && request.active_characters.length > 0) {
+    message += '**Active Players in This Session:**\n';
+    message += request.active_characters.join(', ') + '\n';
+    message += '⚠️ IMPORTANT: Only interact with these characters. Do not ask for rolls from characters not listed here.\n\n';
+  }
 
   // Add recent narrative context
   if (request.recent_narrative.length > 0) {

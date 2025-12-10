@@ -35,6 +35,26 @@ export async function POST(request: NextRequest) {
 
     if (gameStateError) throw gameStateError;
 
+    // Fetch active session members and their characters
+    const { data: sessionMembers, error: membersError } = await supabase
+      .from('session_members')
+      .select(`
+        character_id,
+        characters (
+          id,
+          name
+        )
+      `)
+      .eq('session_id', session_id)
+      .not('character_id', 'is', null);
+
+    if (membersError) throw membersError;
+
+    // Extract active character names
+    const activeCharacters = (sessionMembers || [])
+      .filter((m: any) => m.characters)
+      .map((m: any) => m.characters.name);
+
     // Fetch recent DM messages for context (last 5)
     const { data: messages, error: messagesError } = await supabase
       .from('messages')
@@ -66,6 +86,7 @@ export async function POST(request: NextRequest) {
       combat_state: gameState?.combat_state || null,
       recent_narrative: recentNarrative,
       language: (session as any)?.dm_language || 'indonesian',
+      active_characters: activeCharacters,
     });
 
     // Handle combat updates
@@ -173,15 +194,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Save DM message
-    await supabase.from('messages').insert({
-      session_id,
-      user_id: null,
-      character_id: null,
-      message_type: 'dm',
-      content: dmResponse.narrative,
-      roll_data: dmResponse.dm_rolls || null,
-    });
+    // DON'T save message here - frontend handles it via sendDMMessage()
+    // This prevents duplicate messages
 
     // Convert V2 response to V1 format (compatible with existing frontend)
     const rollPrompts = dmResponse.request_roll
