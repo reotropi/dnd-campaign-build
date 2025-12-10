@@ -68,7 +68,7 @@ function GameContent() {
         setDmLoading(true);
 
         try {
-          const response = await fetch('/api/claude', {
+          const response = await fetch('/api/claude-v2', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -134,7 +134,7 @@ function GameContent() {
 
       // Get DM response
       setDmLoading(true);
-      const response = await fetch('/api/claude', {
+      const response = await fetch('/api/claude-v2', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

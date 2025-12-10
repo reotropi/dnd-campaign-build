@@ -805,8 +805,10 @@ Start the narrative NOW!`;
         message += `- DO NOT wait, DO NOT ask for more - START COMBAT NOW\n`;
       } else {
         message += `\n⚠️ INITIATIVE ROLL RECEIVED (${initiativeCount}/${playerCount} players)\n`;
-        message += `- You MUST wait for ALL ${playerCount} players to roll initiative\n`;
-        message += `- Acknowledge this roll and wait for the rest\n`;
+        message += `- WAITING for remaining ${playerCount - initiativeCount} player(s) to roll\n`;
+        message += `- Acknowledge ${context.character_name}'s roll enthusiastically\n`;
+        message += `- Briefly remind other players to roll their initiative\n`;
+        message += `- DO NOT roll enemy initiative yet - wait for all players first\n`;
         message += `- DO NOT start combat yet\n`;
       }
     }
@@ -823,16 +825,18 @@ Start the narrative NOW!`;
 
   // Critical reminders - make them even stronger
   message += '\n\n🚨 MANDATORY CHECKLIST - YOU MUST DO ALL OF THESE:\n';
-  message += '✓ ALWAYS include dramatic narrative text - NEVER return only tool calls\n';
+  message += '✓ ALWAYS include dramatic narrative text - NEVER return only tool calls or empty responses\n';
+  message += '✓ Waiting for initiative? Acknowledge the roll dramatically and encourage others\n';
   message += '✓ Initiative? Request_roll from EVERY player character ONCE, then move to combat\n';
-  message += '✓ After initiative rolls received? Announce turn order and START combat immediately\n';
-  message += '✓ Enemy attacks? ALWAYS: roll_dice attack → check AC → roll_dice damage → apply_damage → next enemy\n';
+  message += '✓ After ALL initiative rolls received? Announce turn order and START combat immediately\n';
+  message += '✓ Enemy attacks? ALWAYS: roll_dice attack → check AC → roll_dice damage → update_combat → next enemy\n';
   message += '✓ Multiple enemies before player turn? Complete ALL their full turns in THIS response\n';
   message += '✓ Player multi-action? Request ALL needed rolls (bonus action + main action)\n';
   message += '✓ Response MUST end with active player prompted for action/roll\n';
   message += '✓ NEVER stop after attack roll without damage\n';
   message += '✓ NEVER stop mid-round\n';
   message += '✓ NEVER re-roll initiative - it only happens once at combat start\n';
+  message += '✓ NEVER return empty or silent responses - always narrate something\n';
   message += '\nFAILURE TO FOLLOW = BROKEN GAME FLOW';
 
   return message;
