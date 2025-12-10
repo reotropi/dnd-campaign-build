@@ -52,11 +52,15 @@ function GameContent() {
     }
   }, [messages]);
 
-  // Trigger initial DM narration when game starts
+  // Trigger initial DM narration when game starts (ONLY HOST)
   useEffect(() => {
     const sendInitialDMMessage = async () => {
-      // Only send if no messages exist yet, we haven't sent it, and messages have finished loading
-      if (messages.length === 0 && !messagesLoading && !initialMessageSent && session && user) {
+      // Only send if:
+      // 1. No messages exist yet
+      // 2. Messages have finished loading
+      // 3. We haven't sent it already
+      // 4. User is the host (to prevent duplicate messages from multiple clients)
+      if (messages.length === 0 && !messagesLoading && !initialMessageSent && session && user && isHost) {
         setInitialMessageSent(true);
         setDmLoading(true);
 
@@ -97,7 +101,7 @@ function GameContent() {
     };
 
     sendInitialDMMessage();
-  }, [messages, messagesLoading, initialMessageSent, session, user, sessionId, sendDMMessage]);
+  }, [messages, messagesLoading, initialMessageSent, session, user, sessionId, sendDMMessage, isHost]);
 
   // Handle player messages and get DM response
   const handleSendMessage = async (content: string, rollData?: RollData) => {

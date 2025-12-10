@@ -64,7 +64,22 @@ export function useSessionCharacter(sessionId: string | null, characterId: strin
         .eq('character_id', characterId)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // If character not in session_characters, fetch directly from characters table as fallback
+        console.warn('Character not in session_characters, fetching from characters table:', error);
+        const { data: charData, error: charError } = await supabase
+          .from('characters')
+          .select('*')
+          .eq('id', characterId)
+          .single();
+
+        if (charError) throw charError;
+
+        setCharacter(charData);
+        setError(null);
+        setLoading(false);
+        return;
+      }
 
       if (sessionChar && (sessionChar as any).character) {
         const charData = (sessionChar as any).character;
