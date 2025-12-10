@@ -71,10 +71,19 @@ export function SessionLobby({
     if (!userMember) return;
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        throw new Error('Not authenticated');
+      }
+
       const response = await fetch(`/api/sessions/${session.id}/ready`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_ready: !userMember.is_ready }),
+        body: JSON.stringify({
+          is_ready: !userMember.is_ready,
+          user_id: user.id
+        }),
       });
 
       if (!response.ok) {
