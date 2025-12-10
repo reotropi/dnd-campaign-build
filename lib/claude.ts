@@ -145,6 +145,9 @@ export async function getDMResponse(context: DMContext): Promise<{
     const rollPrompts: RollPrompt[] = [];
     const characterUpdates: CharacterUpdate[] = [];
 
+    // Log the raw message for debugging
+    console.log('Claude API response:', JSON.stringify(message, null, 2));
+
     // Process all content blocks
     for (const block of message.content) {
       if (block.type === 'text') {
@@ -215,6 +218,13 @@ export async function getDMResponse(context: DMContext): Promise<{
           }
         }
       }
+    }
+
+    // Warn if response is empty
+    if (!responseText || responseText.trim() === '') {
+      console.warn('Claude returned empty response! Message content:', message.content);
+      console.warn('Stop reason:', message.stop_reason);
+      responseText = '*The Dungeon Master pauses, deep in thought...*\n\nTry rephrasing your action or asking what you should do next.';
     }
 
     return {
@@ -307,27 +317,47 @@ ${getEnemyContext(context.campaign_name)}
 
 DM GUIDELINES:
 
-🚨 **CRITICAL RULES:**
+🚨 **CRITICAL COMBAT RULES - MANDATORY:**
 
-1. **NEVER STOP MID-COMBAT ROUND:**
-   - Enemy attacks? → Roll attack AND damage in same response, apply damage, move to next enemy
-   - Multiple enemies before player? → Resolve ALL their complete turns (attack+damage) until player's turn
-   - Only stop at player's turn with clear action prompt
+1. **INITIATIVE:**
+   - When combat starts, request_roll from EVERY player character for initiative
+   - Roll for ALL enemies using roll_dice tool
+   - Announce full turn order from highest to lowest
+   - Example: "Turn order: Tikus #2 (20), Hank (15), Tikus #3 (14), Gorak (8), Tikus #1 (5)"
 
-2. **MULTI-ACTION TURNS:**
-   - Player uses bonus action (Hunter's Mark, etc.) + main action (attack)? → Request attack roll sequentially
-   - Example: "You mark the rat with Hunter's Mark! Now make your Longbow attack roll!"
-   - Never stop after just bonus action - always complete the full turn
+2. **NEVER STOP MID-ROUND:**
+   - Enemy turn? Roll attack (roll_dice), check if hit, roll damage (roll_dice), apply_damage, describe result
+   - Multiple enemies before next player? Complete ALL their turns (attack+damage+apply) in ONE response
+   - Example: Rat #2 attacks (roll+damage+apply) → Rat #3 attacks (roll+damage+apply) → THEN player's turn
+   - DO NOT stop after just one enemy's attack roll - COMPLETE THE DAMAGE AND CONTINUE
 
-3. **ALWAYS END WITH PLAYER PROMPT:**
-   - Every response must end with player being prompted for action or roll
-   - Never end on enemy action without continuing to player's turn
+3. **COMPLETE ATTACK SEQUENCE (MANDATORY):**
+   For EACH enemy attack:
+   a) Roll attack with roll_dice (1d20+modifier)
+   b) Compare to player's AC - announce hit or miss
+   c) If hit: IMMEDIATELY roll damage with roll_dice
+   d) If hit: IMMEDIATELY apply_damage to the player
+   e) Only THEN move to next creature
 
-**TOOLS:** roll_dice (enemies), request_roll (players), apply_damage (HP), use_spell_slot, long_rest
+4. **MULTI-ACTION PLAYER TURNS:**
+   - Player says bonus action + main action? Request rolls for BOTH actions
+   - Example: "Cast Hunter's Mark (no roll) - Now roll your Longbow attack!"
+   - Never stop after just bonus action
 
-**CRITICAL HIT:** Double damage dice only. Example: 1d8+3 → 2d8+3
+5. **ALWAYS END WITH PLAYER PROMPT:**
+   - Every response MUST end with active player prompted for their action/roll
+   - Never end on enemy action or mid-sequence
 
-If player down to 0, if there's other player left, keep the game on. But if not, this mission is failed or another NPC saves players for a long rest to retry.
+**TOOLS:**
+- roll_dice: ALL enemy/NPC rolls (attacks, damage, saves, etc.)
+- request_roll: Request player to roll (initiative, attacks, saves, skills)
+- apply_damage: Apply HP changes immediately after damage rolls
+- use_spell_slot: Track spell usage
+- long_rest: Full recovery
+
+**CRITICAL HIT:** Natural 20 = double damage dice only (not modifiers). Example: 1d8+3 becomes 2d8+3
+
+**DEATH:** If player reaches 0 HP and others survive, continue. If all players reach 0, quest fails OR friendly NPC rescues them.
 
 Be dramatic and engaging!`;
 }
@@ -465,12 +495,16 @@ Start the narrative NOW!`;
     message += '\nRespond dramatically.\n';
   }
 
-  // Critical reminders
-  message += '\n🚨 MANDATORY:\n';
-  message += '- Enemy turn? Roll attack+damage together, apply damage, continue to next creature\n';
-  message += '- Player multi-action turn? Request ALL actions (bonus action + main action)\n';
-  message += '- MUST end with player being prompted for their action/roll\n';
-  message += '- NEVER stop mid-round or after enemy attack without damage';
+  // Critical reminders - make them even stronger
+  message += '\n\n🚨 MANDATORY CHECKLIST - YOU MUST DO ALL OF THESE:\n';
+  message += '✓ Initiative? Request_roll from EVERY player character\n';
+  message += '✓ Enemy attacks? ALWAYS: roll_dice attack → check AC → roll_dice damage → apply_damage → next enemy\n';
+  message += '✓ Multiple enemies before player turn? Complete ALL their full turns in THIS response\n';
+  message += '✓ Player multi-action? Request ALL needed rolls (bonus action + main action)\n';
+  message += '✓ Response MUST end with active player prompted for action/roll\n';
+  message += '✓ NEVER stop after attack roll without damage\n';
+  message += '✓ NEVER stop mid-round\n';
+  message += '\nFAILURE TO FOLLOW = BROKEN GAME FLOW';
 
   return message;
 }

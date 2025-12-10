@@ -53,14 +53,17 @@ export function ChatBox({ messages, onSendMessage, pendingRoll, onClearRoll }: C
     }
   };
 
+  // Filter out OOC messages (they're shown in the OOC panel on the right)
+  const gameMessages = messages.filter((m) => m.message_type !== 'ooc');
+
   return (
     <Stack gap="md" style={{ height: '100%' }}>
       <ScrollArea h={600} viewportRef={viewport}>
         <Stack gap="sm" p="sm">
-          {messages.map((message, index) => (
+          {gameMessages.map((message, index) => (
             <div
               key={message.id}
-              ref={index === messages.length - 1 ? lastMessageRef : null}
+              ref={index === gameMessages.length - 1 ? lastMessageRef : null}
             >
               <ChatMessage message={message} />
             </div>
