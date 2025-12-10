@@ -122,15 +122,6 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Apply short rest (partial HP recovery)
-        if (update.short_rest) {
-          const recoveredHP = Math.min(
-            character.current_hp + update.short_rest.hp_recovered,
-            character.max_hp
-          );
-          updates.current_hp = recoveredHP;
-        }
-
         // Update session-specific character state if there are changes
         if (Object.keys(updates).length > 0) {
           await supabase

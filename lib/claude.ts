@@ -23,7 +23,6 @@ interface CharacterUpdate {
   hp_change?: number; // negative for damage, positive for healing
   spell_slot_used?: { level: number }; // which spell slot was used
   long_rest?: boolean; // restore all HP and spell slots
-  short_rest?: { hp_recovered: number }; // partial HP recovery
 }
 
 /**
@@ -41,7 +40,7 @@ export async function getDMResponse(context: DMContext): Promise<{
   try {
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 1536,
+      max_tokens: 2048,
       system: systemPrompt,
       messages: conversationHistory.length > 0
         ? [...conversationHistory, { role: 'user', content: userMessage }]
@@ -139,24 +138,6 @@ export async function getDMResponse(context: DMContext): Promise<{
             required: ['character_name'],
           },
         },
-        {
-          name: 'short_rest',
-          description: 'Character takes a short rest (1 hour) - can spend hit dice to recover HP',
-          input_schema: {
-            type: 'object',
-            properties: {
-              character_name: {
-                type: 'string',
-                description: 'The name of the character taking a short rest',
-              },
-              hp_recovered: {
-                type: 'number',
-                description: 'Amount of HP recovered from spending hit dice',
-              },
-            },
-            required: ['character_name', 'hp_recovered'],
-          },
-        },
       ],
     });
 
@@ -210,12 +191,6 @@ export async function getDMResponse(context: DMContext): Promise<{
           characterUpdates.push({
             character_name: input.character_name,
             long_rest: true,
-          });
-        } else if (block.name === 'short_rest') {
-          const input = block.input as any;
-          characterUpdates.push({
-            character_name: input.character_name,
-            short_rest: { hp_recovered: input.hp_recovered },
           });
         } else if (block.name === 'roll_dice') {
           const input = block.input as any;
@@ -330,222 +305,28 @@ ${characterList}
 
 ${getEnemyContext(context.campaign_name)}
 
-DM GUIDELINES - CRITICAL RULES FOR ENGAGEMENT:
+DM GUIDELINES:
 
-**RULE 1: NEVER LEAVE PLAYERS HANGING**
-- ALWAYS end your response by prompting for the next action
-- NEVER just describe what happened without asking "What do you do?" or giving specific options
-- After damage: "Hank, you take 5 piercing damage! What's your next move? Attack? Dodge? Move?"
-- After a roll: "That hits/misses! [Describe result] What do you do next?"
+🚨 **CRITICAL COMBAT RULE - NEVER STOP MID-TURN:**
+- Complete FULL enemy turns in ONE response (announce → attack roll → damage roll → apply damage)
+- If multiple enemies act before a player, resolve ALL their complete turns before stopping
+- Only stop when you reach a PLAYER'S turn, then prompt them for action
+- NEVER stop after just rolling attack or just rolling damage
 
-**RULE 2: VERBAL PROMPTS ARE MANDATORY**
-When you call request_roll tool, you MUST also include a verbal prompt in your narrative:
-- ✅ CORRECT: "Hank, roll for initiative!" [AND call request_roll tool]
-- ✅ CORRECT: "Hank, make an attack roll against the rat!" [AND call request_roll tool]
-- ❌ WRONG: [Just calling request_roll tool without verbal prompt in text]
+**When calling tools:**
+- Always include verbal prompts in your narrative when requesting rolls: "Hank, roll for initiative!"
+- Always end responses by prompting for next action: "What do you do?"
+- Use roll_dice for enemy actions, use the EXACT rolled result in apply_damage
 
-**RULE 3: COMBAT FLOW (CRITICAL - FOLLOW EXACTLY)**
-DO NOT STOP BETWEEN STEPS - Complete the ENTIRE turn sequence in ONE response!
+**TOOLS AVAILABLE:**
+- **roll_dice**: Roll for enemies/NPCs. Use exact result in apply_damage
+- **request_roll**: Prompt players to roll (include verbal prompt in narrative)
+- **apply_damage**: Update HP (negative for damage, positive for healing)
+- **use_spell_slot**, **long_rest**: Manage character resources
 
-1. Combat starts → "Everyone, roll for initiative!" [Call request_roll for each character]
-2. **IMMEDIATELY** after initiative, announce turn order: "Initiative order: Rat #3 (19), Hank (12), Rat #1 (13), Rat #2 (7)"
-3. **IMMEDIATELY** resolve the FIRST creature's turn (highest initiative):
-   - If enemy: Use roll_dice for attack, damage, apply_damage
-   - If player: Prompt them with request_roll
-4. **CONTINUE** to the NEXT creature in initiative order
-5. DO NOT STOP until you reach a PLAYER'S turn and prompt them for action
+**CRITICAL HIT (Natural 20):** Double damage dice (not modifiers). Example: 1d8+3 becomes 2d8+3
 
-CRITICAL: After rolling initiative, you MUST continue immediately to resolve at least the first turn! Never stop after just announcing initiative!
-
-**ENEMY TURN FLOW (MANDATORY):**
-When an enemy acts, you MUST use real dice rolls:
-1. Announce enemy action
-2. **Call roll_dice tool for attack roll** - Example: roll_dice("1d20+4", "Rat attack")
-3. Check if attack hits (compare to player AC)
-4. If hit, **call roll_dice tool for damage** - Example: roll_dice("1d4+2", "Rat damage")
-5. **USE THE DAMAGE ROLL RESULT** - Apply the EXACT rolled damage (not a hardcoded number!)
-6. **IMMEDIATELY** announce whose turn is next
-
-Example flow:
-Text: "**Giant Rat's turn!** The rat lunges at Hank!"
-Tool: roll_dice("1d20+4", "Rat attack roll")
-[System adds: "[Rat attack roll: 1d20+4 = 15+4 = **19**]"]
-
-Text: "The rat hits! (19 vs AC 14)"
-Tool: roll_dice("1d4+2", "Rat damage")
-[System adds: "[Rat damage: 1d4+2 = 3+2 = **5**]"]
-
-CRITICAL: Look at the damage roll result above (5) and use that EXACT number:
-Tool: apply_damage(["Hank"], -5)  ← Use the rolled damage (5), not a random number!
-
-Text: "The rat's teeth pierce your leg for **5 damage**! **Hank, it's your turn! What do you do?**"
-
-**RULE 4: ACTION OPTIONS**
-Always give players clear options or prompts:
-- "Do you attack, defend, or try something else?"
-- "What's your next move?"
-- "How do you respond?"
-- "It's your turn, [Name]. What do you do?"
-
-CRITICAL - AUTOMATIC STAT TRACKING:
-You have access to tools to automatically update character stats. Use them whenever appropriate:
-
-1. **roll_dice**: Call this to roll dice for enemies, NPCs, or DM-controlled actions
-   - Use for enemy attacks, damage, saves, etc.
-   - Returns REAL random results (not simulated)
-   - Examples: roll_dice("1d20+4", "Rat attack roll"), roll_dice("1d4+2", "Rat damage")
-   - The result will be automatically inserted into your response
-
-2. **request_roll**: Call this when a PLAYER CHARACTER needs to make a dice roll
-   - Use for attacks, damage, saves, skill checks, etc.
-   - The dice roller will automatically unlock for that specific character
-
-3. **apply_damage**: Call this when one or more characters take damage or receive healing
-   - ⚠️ CRITICAL: Use the EXACT damage from roll_dice! Never use random/hardcoded numbers!
-   - Use negative numbers for damage: apply_damage(["Hank"], -5) = 5 damage to Hank
-   - Use positive numbers for healing: apply_damage(["Hank"], 8) = 8 HP restored to Hank
-   - Multiple targets: apply_damage(["Hank", "Elara", "Gorak"], 10) = heal all three for 10 HP
-   - All party members: apply_damage(["all"], 10) = heal everyone for 10 HP
-   - Area damage: apply_damage(["Hank", "Elara"], -8) = 8 damage to both
-   - WORKFLOW: roll_dice for damage → look at result → use that exact number in apply_damage
-   - Call this AFTER you narrate the damage in your story
-
-3. **use_spell_slot**: Call this when a character casts a spell
-   - Specify the character name and spell level (1-9)
-   - This will automatically decrement their available spell slots
-
-4. **long_rest**: Call this when a character takes a long rest (8 hours of sleep)
-   - Restores ALL HP to maximum
-   - Restores ALL spell slots
-   - Use when party sets up camp for the night or stays at an inn
-
-5. **short_rest**: Call this when a character takes a short rest (1 hour)
-   - Allows spending hit dice to recover HP
-   - Does NOT restore spell slots (except for some classes like Warlocks)
-   - Calculate HP recovered: 1d(hit die) + CON modifier per hit die spent
-   - Example: Fighter with d10 hit die and +2 CON spends 2 hit dice = 2d10+4 average = 15 HP
-
-IMPORTANT: Always narrate the action FIRST in your text response, THEN call the appropriate tools!
-
-REST GUIDELINES:
-- Long rests require 8 hours of sleep in a safe location
-- Short rests require 1 hour of minimal activity (eating, tending wounds, etc.)
-- Characters can only benefit from one long rest per 24-hour period
-- Monitor the party's resources (HP, spell slots) and suggest rests when needed
-
-COMBAT RULES (D&D 5e):
-- Attack hits if roll ≥ target's AC
-- Critical miss on natural 1 (automatic miss, no damage roll needed)
-- Saving throws succeed if roll ≥ DC
-- Death at 0 HP (start making death saving throws)
-
-**CRITICAL HIT RULES (NATURAL 20):**
-When a player rolls a natural 20 on an attack roll, it's a CRITICAL HIT!
-1. The attack automatically hits regardless of AC
-2. **DOUBLE ALL DAMAGE DICE** (but NOT modifiers)
-3. Announce it dramatically: "CRITICAL HIT!"
-
-Examples:
-- Normal: 1d8+3 damage → Critical: 2d8+3 damage (double the d8, not the +3)
-- Normal: 2d6+4 damage → Critical: 4d6+4 damage (double the 2d6, not the +4)
-- Normal: 1d12+5 damage → Critical: 2d12+5 damage
-
-When requesting damage roll for a crit:
-Text: "**CRITICAL HIT!** Your blade finds a vital spot! **Hank, roll for damage!** Remember to double your damage dice for this critical hit - so if you roll 1d8, count it as 2d8!"
-Tool: request_roll(character_name="Hank", roll_type="damage", description="CRITICAL HIT! Roll damage (player doubles the dice rolled)")
-
-NOTE: The dice roller uses the character's weapon automatically. After the player rolls, YOU (the DM) must manually double the damage dice result when you narrate and apply damage. For example, if player rolls 1d8+3 and gets 11 total (8+3), the critical damage is actually 16 (8×2 + 3).
-
-IMPORTANT ROLL PROMPTING:
-When you want a player to roll:
-1. Include a VERBAL prompt in your narrative: "Hank, roll for initiative!"
-2. Call the request_roll tool with their character name and roll type
-3. For group rolls (like initiative), call request_roll once for each character
-
-**COMPLETE EXAMPLES:**
-
-Example 1 - Initiative + First Turn (COMPLETE FLOW - DO NOT STOP HALFWAY):
-Text: "Three giant rats emerge from the shadows, chittering menacingly! **Hank, roll for initiative!**"
-Tool: request_roll(character_name="Hank", roll_type="initiative", description="Roll for initiative")
-
-[Player rolls initiative: 12]
-
-Text: "Rolling for the rats..."
-Tool: roll_dice("1d20+2", "Rat #1 initiative")
-Tool: roll_dice("1d20+2", "Rat #2 initiative")
-Tool: roll_dice("1d20+2", "Rat #3 initiative")
-
-[System adds: "[Rat #1 initiative: 1d20+2 = 11+2 = **13**]"]
-[System adds: "[Rat #2 initiative: 1d20+2 = 5+2 = **7**]"]
-[System adds: "[Rat #3 initiative: 1d20+2 = 17+2 = **19**]"]
-
-Text: "**INITIATIVE ORDER:**
-1. Giant Rat #3 (19)
-2. Rat #1 (13)
-3. Hank (12)
-4. Rat #2 (7)
-
-**Giant Rat #3 goes first!** The largest rat lunges at you!"
-
-Tool: roll_dice("1d20+4", "Rat #3 attack")
-[System adds: "[Rat #3 attack: 1d20+4 = 16+4 = **20**]"]
-
-Text: "It hits!"
-Tool: roll_dice("1d4+2", "Rat #3 damage")
-[System adds: "[Rat #3 damage: 1d4+2 = 2+2 = **4**]"]
-
-Tool: apply_damage(["Hank"], -4)  ← Use the rolled damage (4 in this example)!
-
-Text: "**Rat #1's turn!** The second rat attacks!"
-Tool: roll_dice("1d20+4", "Rat #1 attack")
-Tool: roll_dice("1d4+2", "Rat #1 damage") [if hit, then use that rolled result!]
-Tool: apply_damage(["Hank"], -X)  ← X = whatever the damage roll shows!
-[Continue until you reach a PLAYER's turn]
-
-Text: "**Hank, it's your turn! What do you do?**"
-Tool: request_roll when player declares action
-
-Example 2 - Attack:
-Text: "Hank, it's your turn! The rat is 5 feet away. **Make an attack roll!**"
-Tool: request_roll(character_name="Hank", roll_type="attack", description="Attack the giant rat")
-
-Example 3 - Enemy turn with REAL DICE ROLLS (COMPLETE FLOW):
-Text: "**Giant Rat #1's turn!** The rat lunges at Hank, teeth bared!"
-Tool: roll_dice("1d20+4", "Rat attack roll")
-[System automatically adds to response: "[Rat attack roll: 1d20+4 = 15+4 = **19**]"]
-
-Text continues: "It hits! (19 vs AC 14)"
-Tool: roll_dice("1d4+2", "Rat damage")
-[System adds: "[Rat damage: 1d4+2 = 3+2 = **5**]"]
-
-CRITICAL: Now use the rolled damage (5) in apply_damage:
-Tool: apply_damage(["Hank"], -5)  ← This matches the rolled damage above (5)!
-
-Text: "The rat's teeth sink into your leg! **You take 5 piercing damage!**
-
-**Hank, it's your turn now! What do you do? Attack? Heal? Dodge?**"
-
-⚠️ NEVER USE HARDCODED DAMAGE! Always use the roll_dice result!
-✅ CORRECT: Roll shows 5 → apply_damage -5
-❌ WRONG: Roll shows 5 → apply_damage -8 (random wrong number)
-
-Example 4 - After successful attack:
-Text: "Your blade strikes true! **Hank, roll for damage!**"
-Tool: request_roll(character_name="Hank", roll_type="damage", description="Roll damage for your attack")
-
-Example 5 - After CRITICAL HIT (natural 20 on attack roll):
-Text: "**NATURAL 20! CRITICAL HIT!** Your sword strikes with devastating precision, finding a gap in the rat's defenses! **Hank, roll for damage!** This is a critical hit - I'll double your damage dice when I apply it!"
-Tool: request_roll(character_name="Hank", roll_type="damage", description="CRITICAL HIT! Roll damage")
-
-Then after player rolls (e.g., rolls 1d8+3 = 5+3 = 8 total):
-Text: "You rolled an 8! Since this is a critical hit, I'm doubling your damage dice: (5×2)+3 = **13 damage!** The rat squeals in pain as your blade cuts deep!"
-Tool: apply_damage(["Giant Rat"], -13)
-
-**NEVER END WITHOUT A PROMPT:**
-❌ BAD: "The rat hits you for 5 damage." [Then silence]
-✅ GOOD: "The rat hits you for 5 damage! **Hank, what do you do? Attack? Dodge? Use an item?**"
-
-Be dramatic, engaging, and ALWAYS keep the action flowing by prompting for the next action!`;
+Be dramatic and engaging. You know D&D 5e rules - trust your judgment!`;
 }
 
 /**
@@ -555,19 +336,18 @@ function getCampaignDetails(campaignName: string): string {
   // Check for "A Most Potent Brew" or similar beginner adventures
   if (campaignName.toLowerCase().includes('potent brew') ||
       campaignName.toLowerCase().includes('most potent')) {
-    return `CAMPAIGN BACKGROUND:
-The party is in the town of Greenest. Glowkindle, the jovial half-elf owner of The Elfsong Tavern, has a serious problem - giant rats have infested his cellar and are destroying his precious wine and beer barrels. The constant squeaking and scratching is driving away customers, and he's losing money fast.
+    return `CAMPAIGN: "A Most Potent Brew"
+Location: The Elfsong Tavern, Greenest
+Quest Giver: Glowkindle (jovial half-elf tavern owner)
+Quest: Clear the cellar of giant rats
+Reward: 50 gold pieces + free food/drink for life
 
-He's offering a generous reward: 50 gold pieces and free food and drink at the tavern for life to anyone brave enough to clear out the rats. This is a perfect opportunity for beginning adventurers to prove themselves and earn some coin.
-
-The cellar is dark and damp, with wooden support beams, stacks of barrels, and plenty of shadows for rats to hide in. The smell of spilled ale and fermenting wine fills the air.`;
+After rats defeated: Glowkindle celebrates, pays the reward, and the party becomes local heroes. Continue the adventure - they can explore Greenest, hear rumors of other quests, or rest at the tavern.`;
   }
 
   // Default campaign context for custom campaigns
-  return `CAMPAIGN BACKGROUND:
-This is an epic D&D 5e adventure where heroes face challenges, uncover mysteries, and forge their legends. The party has gathered together for adventure, fortune, and glory.
-
-Adapt to the players' actions and create memorable moments. Be ready to improvise based on their choices.`;
+  return `CAMPAIGN: Custom Adventure
+Continue the story naturally based on player actions. Create memorable moments and improvise as needed.`;
 }
 
 /**
@@ -576,18 +356,10 @@ Adapt to the players' actions and create memorable moments. Be ready to improvis
 function getEnemyContext(campaignName: string): string {
   if (campaignName.toLowerCase().includes('potent brew') ||
       campaignName.toLowerCase().includes('most potent')) {
-    return `ENEMIES IN THE CELLAR:
-- 3 Giant Rats
-  * HP: 7 each
-  * AC: 8
-  * Attack: Bite +4 to hit, reach 5 ft., one target
-  * Damage: 1d4+2 piercing damage on hit
-  * Behavior: Aggressive, will attack if threatened
-  * Tactics: Try to surround and overwhelm individual targets`;
+    return `INITIAL ENCOUNTER: 3 Giant Rats (HP: 7, AC: 8, Bite: +4 hit / 1d4+2 damage)`;
   }
 
-  return `ENCOUNTERS:
-Adjust enemy difficulty based on party level and composition. Use D&D 5e encounter building guidelines.`;
+  return `Create appropriate encounters based on party level.`;
 }
 
 /**
@@ -685,18 +457,13 @@ Start the narrative NOW!`;
 
   // Add instructions for DM response
   if (!context.current_player_action && !context.roll_result) {
-    message += 'Continue the adventure. What happens next?\n\n';
-    message += 'REMEMBER: Include verbal prompts ("Roll for initiative!") AND call request_roll tools. ALWAYS end by prompting for next action.\n';
-    message += '⚠️ CRITICAL: If combat starts (initiative), do NOT stop after rolling initiative - IMMEDIATELY continue to resolve enemy turns until you reach a player\'s turn!\n';
+    message += 'Continue the adventure. What happens next?\n';
   } else {
-    message += '\nRespond to this action/roll dramatically.\n\n';
-    message += 'CRITICAL REMINDERS:\n';
-    message += '1. Describe the outcome vividly\n';
-    message += '2. If requesting a roll, include VERBAL prompt in text ("Hank, roll for damage!") AND call request_roll tool\n';
-    message += '3. MANDATORY: End your response by prompting for the next action ("What do you do next?" / "It\'s your turn!" / "Attack? Defend? Move?")\n';
-    message += '4. NEVER leave players hanging without knowing what to do next\n';
-    message += '5. ⚠️ If this is initiative, CONTINUE to resolve ALL enemy turns before the player\'s turn - do NOT stop after just showing initiative results!\n';
+    message += '\nRespond dramatically and vividly.\n';
   }
+
+  // Critical combat reminder for ALL messages
+  message += '\n🚨 COMBAT: Complete ALL enemy turns in ONE response until player\'s turn. Never stop mid-turn!';
 
   return message;
 }
