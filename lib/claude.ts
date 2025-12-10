@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { Character, Message, RollData, RollPrompt, GameState } from '@/types';
+import { CombatUpdate, InitCombatParams } from '@/types/combat';
 import { rollDice } from './dice';
 
 const anthropic = new Anthropic({
@@ -16,6 +17,7 @@ interface DMContext {
   sender_name?: string;
   character_name?: string;
   dm_language?: 'indonesian' | 'english';
+  session_id?: string; // Added for combat state management
 }
 
 interface CharacterUpdate {
@@ -40,7 +42,7 @@ export async function getDMResponse(context: DMContext): Promise<{
   try {
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 2048,
+      max_tokens: 4096, // Increased from 2048 to allow for full combat sequences
       system: systemPrompt,
       messages: conversationHistory.length > 0
         ? [...conversationHistory, { role: 'user', content: userMessage }]
@@ -138,6 +140,134 @@ export async function getDMResponse(context: DMContext): Promise<{
             required: ['character_name'],
           },
         },
+        {
+          name: 'init_combat',
+          description: 'Initialize combat with enemies. Use this when combat starts. System will automatically request initiative from all players.',
+          input_schema: {
+            type: 'object',
+            properties: {
+              enemies: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    name: {
+                      type: 'string',
+                      description: 'Enemy type name (e.g., "Giant Rat", "Goblin")',
+                    },
+                    count: {
+                      type: 'number',
+                      description: 'How many of this enemy type',
+                    },
+                    hp: {
+                      type: 'number',
+                      description: 'Hit points for each enemy',
+                    },
+                    ac: {
+                      type: 'number',
+                      description: 'Armor class',
+                    },
+                    attack_bonus: {
+                      type: 'number',
+                      description: 'Attack roll bonus (e.g., +4)',
+                    },
+                    damage_dice: {
+                      type: 'string',
+                      description: 'Damage dice notation (e.g., "1d6+2")',
+                    },
+                  },
+                  required: ['name', 'count', 'hp', 'ac', 'attack_bonus', 'damage_dice'],
+                },
+                description: 'Array of enemy types and their stats',
+              },
+            },
+            required: ['enemies'],
+          },
+        },
+        {
+          name: 'update_combat',
+          description: 'Update combat state with damage, healing, conditions, or deaths. Use after resolving attacks or effects.',
+          input_schema: {
+            type: 'object',
+            properties: {
+              damage_dealt: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    target_id: {
+                      type: 'string',
+                      description: 'character_id for players, enemy id for enemies',
+                    },
+                    amount: {
+                      type: 'number',
+                      description: 'Damage amount',
+                    },
+                  },
+                  required: ['target_id', 'amount'],
+                },
+                description: 'Array of damage to apply',
+              },
+              healing: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    target_id: { type: 'string' },
+                    amount: { type: 'number' },
+                  },
+                  required: ['target_id', 'amount'],
+                },
+                description: 'Array of healing to apply',
+              },
+              conditions_added: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    target_id: { type: 'string' },
+                    conditions: {
+                      type: 'array',
+                      items: { type: 'string' },
+                      description: 'Conditions like "poisoned", "prone", "stunned"',
+                    },
+                  },
+                  required: ['target_id', 'conditions'],
+                },
+                description: 'Conditions to add to combatants',
+              },
+              conditions_removed: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    target_id: { type: 'string' },
+                    conditions: { type: 'array', items: { type: 'string' } },
+                  },
+                  required: ['target_id', 'conditions'],
+                },
+                description: 'Conditions to remove from combatants',
+              },
+              enemies_killed: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Array of enemy IDs to mark as dead',
+              },
+              turn_complete: {
+                type: 'boolean',
+                description: 'Set to true to advance to the next turn',
+              },
+            },
+          },
+        },
+        {
+          name: 'end_combat',
+          description: 'End combat encounter. Use when all enemies are defeated or combat concludes.',
+          input_schema: {
+            type: 'object',
+            properties: {},
+          },
+        },
       ],
     });
 
@@ -216,15 +346,105 @@ export async function getDMResponse(context: DMContext): Promise<{
             const rollResult = `[${rollName}: ${count}d${sides}${modifier >= 0 ? '+' : ''}${modifier !== 0 ? modifier : ''} = ${rolls.join('+')}${modifier !== 0 ? ` ${modifier >= 0 ? '+' : ''}${modifier}` : ''} = **${total}**]`;
             responseText += `\n${rollResult}`;
           }
+        } else if (block.name === 'init_combat') {
+          const input = block.input as InitCombatParams;
+
+          // Call the init combat API
+          if (context.session_id) {
+            try {
+              const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/combat/init`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  session_id: context.session_id,
+                  enemies: input.enemies,
+                }),
+              });
+
+              const result = await response.json();
+              if (result.success) {
+                responseText += `\n\n[Combat initialized! ${result.message}]`;
+              }
+            } catch (error) {
+              console.error('Error initializing combat:', error);
+            }
+          }
+        } else if (block.name === 'update_combat') {
+          const input = block.input as CombatUpdate;
+
+          // Call the update combat API
+          if (context.session_id) {
+            try {
+              const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/combat/update`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  session_id: context.session_id,
+                  changes: input,
+                }),
+              });
+
+              const result = await response.json();
+              if (result.combat_ended) {
+                responseText += `\n\n[Combat ended!]`;
+              }
+            } catch (error) {
+              console.error('Error updating combat:', error);
+            }
+          }
+        } else if (block.name === 'end_combat') {
+          // Call the end combat API
+          if (context.session_id) {
+            try {
+              const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/combat/end`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  session_id: context.session_id,
+                }),
+              });
+
+              const result = await response.json();
+              if (result.success) {
+                responseText += `\n\n[${result.message}]`;
+              }
+            } catch (error) {
+              console.error('Error ending combat:', error);
+            }
+          }
         }
       }
     }
 
-    // Warn if response is empty
+    // Warn if response is empty - this usually means only tool calls were returned
     if (!responseText || responseText.trim() === '') {
       console.warn('Claude returned empty response! Message content:', message.content);
       console.warn('Stop reason:', message.stop_reason);
-      responseText = '*The Dungeon Master pauses, deep in thought...*\n\nTry rephrasing your action or asking what you should do next.';
+      console.warn('Tool calls made:', rollPrompts, characterUpdates);
+
+      // If we have roll prompts, that's probably the issue
+      if (rollPrompts.length > 0) {
+        console.warn('Claude returned only roll prompts without narrative text!');
+        responseText = '*[DM is waiting for your roll]*';
+      } else {
+        responseText = '*The Dungeon Master pauses, deep in thought...*\n\nTry rephrasing your action or asking what you should do next.';
+      }
+    }
+
+    // Validate: If combat is active and response mentions damage but no update_combat was called
+    if (context.game_state?.combat_state?.active) {
+      const combatToolCalled = message.content.some(
+        (block: any) => block.type === 'tool_use' &&
+        (block.name === 'update_combat' || block.name === 'init_combat' || block.name === 'end_combat')
+      );
+
+      const mentionsDamage = /damage|hit|dies?|killed|HP|health/i.test(responseText);
+
+      if (mentionsDamage && !combatToolCalled) {
+        console.warn('⚠️ WARNING: Combat active, narrative mentions damage/death, but no combat tool called!');
+        console.warn('Response:', responseText);
+        responseText += '\n\n*[System: Combat state may be out of sync - DM forgot to update state]*';
+      }
     }
 
     return {
@@ -315,43 +535,59 @@ ${characterList}
 
 ${getEnemyContext(context.campaign_name)}
 
+${getCombatStateContext(context)}
+
 DM GUIDELINES:
 
-🚨 **CRITICAL COMBAT RULES - MANDATORY:**
+🚨 **NEW COMBAT SYSTEM - STRUCTURED STATE:**
 
-1. **INITIATIVE:**
-   - When combat starts, request_roll from EVERY player character for initiative
-   - Roll for ALL enemies using roll_dice tool
-   - Announce full turn order from highest to lowest
-   - Example: "Turn order: Tikus #2 (20), Hank (15), Tikus #3 (14), Gorak (8), Tikus #1 (5)"
+The combat system now uses structured state management. You have new tools for combat:
+- init_combat: Start combat with enemy details
+- update_combat: Update damage/healing/conditions/deaths
+- end_combat: End combat encounter
 
-2. **NEVER STOP MID-ROUND:**
-   - Enemy turn? Roll attack (roll_dice), check if hit, roll damage (roll_dice), apply_damage, describe result
-   - Multiple enemies before next player? Complete ALL their turns (attack+damage+apply) in ONE response
-   - Example: Rat #2 attacks (roll+damage+apply) → Rat #3 attacks (roll+damage+apply) → THEN player's turn
-   - DO NOT stop after just one enemy's attack roll - COMPLETE THE DAMAGE AND CONTINUE
+**COMBAT FLOW:**
 
-3. **COMPLETE ATTACK SEQUENCE (MANDATORY):**
+1. **STARTING COMBAT:**
+   - When combat begins, use init_combat tool with enemy stats
+   - Example: init_combat with enemies: [{ name: "Giant Rat", count: 3, hp: 7, ac: 8, attack_bonus: 4, damage_dice: "1d4+2" }]
+   - System will automatically request initiative from ALL players
+   - After all players roll, use roll_dice for each enemy's initiative
+   - System will create turn order automatically
+
+2. **DURING COMBAT:**
+   - ⚠️ **CRITICAL**: You MUST call update_combat for EVERY damage/healing/death that happens
+   - DO NOT just describe damage in text - you MUST also update the state via tool call
+   - The combat_state JSON is the source of truth - if you don't update it, the change doesn't happen
+   - Example: "Rat #2 takes 6 damage!" → MUST call update_combat({ damage_dealt: [{ target_id: "rat_2_id", amount: 6 }] })
+   - Example: "Rat #3 dies!" → MUST call update_combat({ enemies_killed: ["rat_3_id"] })
+   - System automatically tracks changes - but only if you call the tool!
+
+3. **TURN MANAGEMENT:**
+   - When a turn ends, MUST call update_combat with turn_complete: true
+   - System will advance to next combatant automatically
+   - Dead enemies are automatically skipped
+   - DO NOT announce whose turn it is - let the system handle turn order
+
+4. **ENEMY ATTACKS (MANDATORY SEQUENCE):**
    For EACH enemy attack:
    a) Roll attack with roll_dice (1d20+modifier)
    b) Compare to player's AC - announce hit or miss
-   c) If hit: IMMEDIATELY roll damage with roll_dice
-   d) If hit: IMMEDIATELY apply_damage to the player
-   e) Only THEN move to next creature
+   c) If hit: Roll damage with roll_dice
+   d) If hit: MANDATORY - Call update_combat with damage_dealt
+   e) MANDATORY - Call update_combat with turn_complete: true
+   f) Complete ALL enemy turns before next player
 
-4. **MULTI-ACTION PLAYER TURNS:**
-   - Player says bonus action + main action? Request rolls for BOTH actions
-   - Example: "Cast Hunter's Mark (no roll) - Now roll your Longbow attack!"
-   - Never stop after just bonus action
+   ⚠️ **IF YOU FORGET TO CALL update_combat, THE DAMAGE DOESN'T HAPPEN IN THE GAME STATE!**
 
-5. **ALWAYS END WITH PLAYER PROMPT:**
-   - Every response MUST end with active player prompted for their action/roll
-   - Never end on enemy action or mid-sequence
+5. **COMPLETING COMBAT:**
+   - When all enemies dead OR quest objective met, call end_combat
+   - System will clear combat state
 
-**TOOLS:**
+**LEGACY TOOLS (Still Available):**
 - roll_dice: ALL enemy/NPC rolls (attacks, damage, saves, etc.)
 - request_roll: Request player to roll (initiative, attacks, saves, skills)
-- apply_damage: Apply HP changes immediately after damage rolls
+- apply_damage: Apply HP changes (now prefer update_combat for combat scenarios)
 - use_spell_slot: Track spell usage
 - long_rest: Full recovery
 
@@ -396,6 +632,57 @@ function getEnemyContext(campaignName: string): string {
 }
 
 /**
+ * Get current combat state context for Claude
+ */
+function getCombatStateContext(context: DMContext): string {
+  const combatState = context.game_state?.combat_state as any;
+
+  if (!combatState || !combatState.active) {
+    return ''; // No combat active
+  }
+
+  let combatContext = '\n🗡️ **ACTIVE COMBAT STATE:**\n\n';
+  combatContext += `Round: ${combatState.round}\n`;
+  combatContext += `Current Turn: ${combatState.initiative_order[combatState.turn_index]?.name || 'Unknown'}\n\n`;
+
+  // Show initiative order
+  combatContext += '**Initiative Order:**\n';
+  combatState.initiative_order.forEach((participant: any, index: number) => {
+    const isCurrent = index === combatState.turn_index;
+    const marker = isCurrent ? '→' : ' ';
+    combatContext += `${marker} ${participant.initiative}: ${participant.name} (${participant.type})\n`;
+  });
+
+  // Show living enemies
+  combatContext += '\n**Enemies:**\n';
+  combatState.combatants.enemies.forEach((enemy: any) => {
+    if (enemy.is_alive) {
+      combatContext += `- ${enemy.name}: HP ${enemy.current_hp}/${enemy.max_hp}, AC ${enemy.ac}`;
+      if (enemy.conditions && enemy.conditions.length > 0) {
+        combatContext += ` [${enemy.conditions.join(', ')}]`;
+      }
+      combatContext += '\n';
+    } else {
+      combatContext += `- ${enemy.name}: ☠️ DEAD\n`;
+    }
+  });
+
+  // Show player HP (they're already in the party list, but show current combat HP)
+  combatContext += '\n**Players (Current HP):**\n';
+  combatState.combatants.players.forEach((player: any) => {
+    combatContext += `- ${player.name}: HP ${player.current_hp}/${player.max_hp}`;
+    if (player.conditions && player.conditions.length > 0) {
+      combatContext += ` [${player.conditions.join(', ')}]`;
+    }
+    combatContext += '\n';
+  });
+
+  combatContext += '\n⚠️ **IMPORTANT:** Use update_combat tool to apply damage/healing/deaths. The system tracks everything - you just narrate and use the tools!\n';
+
+  return combatContext;
+}
+
+/**
  * Build conversation history from recent messages
  */
 function buildConversationHistory(context: DMContext): Array<{ role: 'user' | 'assistant'; content: string }> {
@@ -405,6 +692,9 @@ function buildConversationHistory(context: DMContext): Array<{ role: 'user' | 'a
 
   // Take last 15 messages to provide context without overwhelming the model
   const recentMessages = context.recent_messages.slice(-15);
+
+  // Track initiative rolls to help Claude see all of them at once
+  const initiativeRolls: { character: string; total: number }[] = [];
 
   recentMessages.forEach((msg) => {
     if (msg.message_type === 'dm') {
@@ -420,6 +710,12 @@ function buildConversationHistory(context: DMContext): Array<{ role: 'user' | 'a
       // Add roll information if present
       if (msg.roll_data) {
         content += `\n[ROLL: ${msg.roll_data.roll_type} - Total: ${msg.roll_data.total}]`;
+
+        // Track initiative rolls
+        if (msg.roll_data.roll_type === 'initiative') {
+          const charName = context.characters.find(c => c.id === msg.character_id)?.name || 'Player';
+          initiativeRolls.push({ character: charName, total: msg.roll_data.total });
+        }
       }
 
       history.push({
@@ -428,6 +724,14 @@ function buildConversationHistory(context: DMContext): Array<{ role: 'user' | 'a
       });
     }
   });
+
+  // If we have multiple initiative rolls, add a summary at the end
+  if (initiativeRolls.length >= 2) {
+    const summary = `\n[INITIATIVE SUMMARY: ${initiativeRolls.map(r => `${r.character} rolled ${r.total}`).join(', ')}]`;
+    if (history.length > 0) {
+      history[history.length - 1].content += summary;
+    }
+  }
 
   return history;
 }
@@ -485,6 +789,28 @@ Start the narrative NOW!`;
       message += `Description: ${context.roll_result.description}\n`;
     }
 
+    // Special handling for initiative rolls
+    if (context.roll_result.roll_type === 'initiative') {
+      // Check if we have all player initiatives
+      const playerCount = context.characters.length;
+      const initiativeCount = context.recent_messages.filter(
+        m => m.roll_data && m.roll_data.roll_type === 'initiative'
+      ).length + 1; // +1 for current roll
+
+      if (initiativeCount >= playerCount) {
+        message += `\n⚠️ ALL INITIATIVE ROLLS RECEIVED (${initiativeCount}/${playerCount} players)\n`;
+        message += `- Roll initiative for ALL enemies NOW using roll_dice\n`;
+        message += `- Announce COMPLETE turn order from highest to lowest\n`;
+        message += `- Then IMMEDIATELY execute ALL enemy turns before next player's turn\n`;
+        message += `- DO NOT wait, DO NOT ask for more - START COMBAT NOW\n`;
+      } else {
+        message += `\n⚠️ INITIATIVE ROLL RECEIVED (${initiativeCount}/${playerCount} players)\n`;
+        message += `- You MUST wait for ALL ${playerCount} players to roll initiative\n`;
+        message += `- Acknowledge this roll and wait for the rest\n`;
+        message += `- DO NOT start combat yet\n`;
+      }
+    }
+
     message += '\n';
   }
 
@@ -497,13 +823,16 @@ Start the narrative NOW!`;
 
   // Critical reminders - make them even stronger
   message += '\n\n🚨 MANDATORY CHECKLIST - YOU MUST DO ALL OF THESE:\n';
-  message += '✓ Initiative? Request_roll from EVERY player character\n';
+  message += '✓ ALWAYS include dramatic narrative text - NEVER return only tool calls\n';
+  message += '✓ Initiative? Request_roll from EVERY player character ONCE, then move to combat\n';
+  message += '✓ After initiative rolls received? Announce turn order and START combat immediately\n';
   message += '✓ Enemy attacks? ALWAYS: roll_dice attack → check AC → roll_dice damage → apply_damage → next enemy\n';
   message += '✓ Multiple enemies before player turn? Complete ALL their full turns in THIS response\n';
   message += '✓ Player multi-action? Request ALL needed rolls (bonus action + main action)\n';
   message += '✓ Response MUST end with active player prompted for action/roll\n';
   message += '✓ NEVER stop after attack roll without damage\n';
   message += '✓ NEVER stop mid-round\n';
+  message += '✓ NEVER re-roll initiative - it only happens once at combat start\n';
   message += '\nFAILURE TO FOLLOW = BROKEN GAME FLOW';
 
   return message;

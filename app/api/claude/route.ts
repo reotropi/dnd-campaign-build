@@ -77,6 +77,7 @@ export async function POST(request: NextRequest) {
       sender_name: sender_name,
       character_name: character_name,
       dm_language: session.dm_language || 'indonesian',
+      session_id: session_id, // Added for combat state management
     });
 
     // Apply character updates (HP changes, spell slot consumption)

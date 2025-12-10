@@ -10,10 +10,12 @@ import { ChatBox } from '@/components/game/ChatBox';
 import { PartyMembers } from '@/components/game/PartyMembers';
 import { HostControls } from '@/components/game/HostControls';
 import { OOCChat } from '@/components/game/OOCChat';
+import { CombatTracker } from '@/components/game/CombatTracker';
 import { useAuth } from '@/hooks/useAuth';
 import { useSession, useSessionMembers } from '@/hooks/useSession';
 import { useSessionCharacter } from '@/hooks/useSessionCharacter';
 import { useGameChat } from '@/hooks/useGameChat';
+import { useCombatState } from '@/hooks/useCombatState';
 import { RollData, RollPrompt } from '@/types';
 import { notifications } from '@mantine/notifications';
 
@@ -27,6 +29,7 @@ function GameContent() {
   const userMember = members.find((m) => m.user_id === user?.id);
   const { character } = useSessionCharacter(sessionId, userMember?.character_id || null);
   const { messages, sendMessage, sendDMMessage, sendOOCMessage, loading: messagesLoading } = useGameChat(sessionId);
+  const { combatState } = useCombatState(sessionId);
 
   const [rollPrompt, setRollPrompt] = useState<RollPrompt | null>(null);
   const [dmLoading, setDmLoading] = useState(false);
@@ -108,6 +111,26 @@ function GameContent() {
     try {
       // Send player message
       await sendMessage(content, rollData);
+
+      // If this is an initiative roll and combat is active, update combat state
+      if (rollData?.roll_type === 'initiative' && combatState?.active && character?.id) {
+        try {
+          await fetch('/api/combat/initiative', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              session_id: sessionId,
+              initiatives: [{
+                id: character.id,
+                initiative: rollData.total,
+                type: 'player',
+              }],
+            }),
+          });
+        } catch (err) {
+          console.error('Error updating initiative:', err);
+        }
+      }
 
       // Get DM response
       setDmLoading(true);
@@ -193,6 +216,7 @@ function GameContent() {
         {/* Right Column - Party & OOC Chat */}
         <Grid.Col span={{ base: 12, md: 3 }}>
           <Stack gap="md">
+            {combatState && <CombatTracker combatState={combatState} />}
             <PartyMembers members={members} />
             <OOCChat messages={messages} onSendMessage={sendOOCMessage} />
           </Stack>

@@ -18,12 +18,20 @@ export function ChatBox({ messages, onSendMessage, pendingRoll, onClearRoll }: C
   const viewport = useRef<HTMLDivElement>(null);
   const lastMessageRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to the start of the latest message when new messages arrive
+  // Filter out OOC messages (they're shown in the OOC panel on the right)
+  const gameMessages = messages.filter((m) => m.message_type !== 'ooc');
+
+  // Auto-scroll to the start of the latest message when new GAME messages arrive
+  // Don't scroll if the latest message is OOC (it's in the side panel)
   useEffect(() => {
-    if (lastMessageRef.current) {
-      lastMessageRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (lastMessageRef.current && gameMessages.length > 0) {
+      // Only scroll if the latest overall message is a game message
+      const latestMessage = messages[messages.length - 1];
+      if (latestMessage && latestMessage.message_type !== 'ooc') {
+        lastMessageRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     }
-  }, [messages.length]); // Only trigger when message count changes
+  }, [messages.length, gameMessages.length]); // Trigger when message count changes
 
   const handleSend = () => {
     if (!messageInput.trim() && !pendingRoll) return;
@@ -52,9 +60,6 @@ export function ChatBox({ messages, onSendMessage, pendingRoll, onClearRoll }: C
       handleSend();
     }
   };
-
-  // Filter out OOC messages (they're shown in the OOC panel on the right)
-  const gameMessages = messages.filter((m) => m.message_type !== 'ooc');
 
   return (
     <Stack gap="md" style={{ height: '100%' }}>

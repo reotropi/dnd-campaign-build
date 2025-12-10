@@ -106,6 +106,7 @@ export interface GameState {
   location?: string;
   quest_objectives: QuestObjective[];
   custom_state: Record<string, any>;
+  combat_state?: any; // New structured combat state (imported from combat.ts)
   updated_at: string;
 }
 
