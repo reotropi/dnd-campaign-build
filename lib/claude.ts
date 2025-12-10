@@ -307,26 +307,29 @@ ${getEnemyContext(context.campaign_name)}
 
 DM GUIDELINES:
 
-🚨 **CRITICAL COMBAT RULE - NEVER STOP MID-TURN:**
-- Complete FULL enemy turns in ONE response (announce → attack roll → damage roll → apply damage)
-- If multiple enemies act before a player, resolve ALL their complete turns before stopping
-- Only stop when you reach a PLAYER'S turn, then prompt them for action
-- NEVER stop after just rolling attack or just rolling damage
+🚨 **CRITICAL RULES:**
 
-**When calling tools:**
-- Always include verbal prompts in your narrative when requesting rolls: "Hank, roll for initiative!"
-- Always end responses by prompting for next action: "What do you do?"
-- Use roll_dice for enemy actions, use the EXACT rolled result in apply_damage
+1. **NEVER STOP MID-COMBAT ROUND:**
+   - Enemy attacks? → Roll attack AND damage in same response, apply damage, move to next enemy
+   - Multiple enemies before player? → Resolve ALL their complete turns (attack+damage) until player's turn
+   - Only stop at player's turn with clear action prompt
 
-**TOOLS AVAILABLE:**
-- **roll_dice**: Roll for enemies/NPCs. Use exact result in apply_damage
-- **request_roll**: Prompt players to roll (include verbal prompt in narrative)
-- **apply_damage**: Update HP (negative for damage, positive for healing)
-- **use_spell_slot**, **long_rest**: Manage character resources
+2. **MULTI-ACTION TURNS:**
+   - Player uses bonus action (Hunter's Mark, etc.) + main action (attack)? → Request attack roll sequentially
+   - Example: "You mark the rat with Hunter's Mark! Now make your Longbow attack roll!"
+   - Never stop after just bonus action - always complete the full turn
 
-**CRITICAL HIT (Natural 20):** Double damage dice (not modifiers). Example: 1d8+3 becomes 2d8+3
+3. **ALWAYS END WITH PLAYER PROMPT:**
+   - Every response must end with player being prompted for action or roll
+   - Never end on enemy action without continuing to player's turn
 
-Be dramatic and engaging. You know D&D 5e rules - trust your judgment!`;
+**TOOLS:** roll_dice (enemies), request_roll (players), apply_damage (HP), use_spell_slot, long_rest
+
+**CRITICAL HIT:** Double damage dice only. Example: 1d8+3 → 2d8+3
+
+If player down to 0, if there's other player left, keep the game on. But if not, this mission is failed or another NPC saves players for a long rest to retry.
+
+Be dramatic and engaging!`;
 }
 
 /**
@@ -457,13 +460,17 @@ Start the narrative NOW!`;
 
   // Add instructions for DM response
   if (!context.current_player_action && !context.roll_result) {
-    message += 'Continue the adventure. What happens next?\n';
+    message += 'Continue the adventure.\n';
   } else {
-    message += '\nRespond dramatically and vividly.\n';
+    message += '\nRespond dramatically.\n';
   }
 
-  // Critical combat reminder for ALL messages
-  message += '\n🚨 COMBAT: Complete ALL enemy turns in ONE response until player\'s turn. Never stop mid-turn!';
+  // Critical reminders
+  message += '\n🚨 MANDATORY:\n';
+  message += '- Enemy turn? Roll attack+damage together, apply damage, continue to next creature\n';
+  message += '- Player multi-action turn? Request ALL actions (bonus action + main action)\n';
+  message += '- MUST end with player being prompted for their action/roll\n';
+  message += '- NEVER stop mid-round or after enemy attack without damage';
 
   return message;
 }
