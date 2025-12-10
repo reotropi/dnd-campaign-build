@@ -42,7 +42,8 @@ export async function POST(request: NextRequest) {
         characters (
           id,
           name,
-          hit_points,
+          max_hp,
+          current_hp,
           armor_class
         )
       `)
@@ -97,8 +98,8 @@ export async function POST(request: NextRequest) {
             combatants.push({
               id: char.id,
               name: char.name,
-              hp: char.hit_points,
-              max_hp: char.hit_points,
+              hp: char.current_hp || char.max_hp,
+              max_hp: char.max_hp,
               ac: char.armor_class,
               initiative: 0,
               type: 'player',
