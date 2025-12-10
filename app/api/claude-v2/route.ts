@@ -42,7 +42,9 @@ export async function POST(request: NextRequest) {
         character_id,
         characters (
           id,
-          name
+          name,
+          hit_points,
+          armor_class
         )
       `)
       .eq('session_id', session_id)
@@ -96,8 +98,25 @@ export async function POST(request: NextRequest) {
       // Start combat
       if (update.start_combat) {
         const combatants: any[] = [];
-        let enemyId = 1;
 
+        // Add player combatants first
+        for (const member of sessionMembers || []) {
+          if (member.characters) {
+            const char = member.characters as any;
+            combatants.push({
+              id: char.id,
+              name: char.name,
+              hp: char.hit_points,
+              max_hp: char.hit_points,
+              ac: char.armor_class,
+              initiative: 0,
+              type: 'player',
+            });
+          }
+        }
+
+        // Add enemy combatants
+        let enemyId = 1;
         update.start_combat.enemies.forEach((enemyType) => {
           for (let i = 1; i <= enemyType.count; i++) {
             combatants.push({
@@ -159,7 +178,11 @@ export async function POST(request: NextRequest) {
           .filter((c: any) => c.type === 'enemy')
           .every((c: any) => c.hp === 0);
 
-        if (allEnemiesDead) {
+        const allPlayersDead = combatState.combatants
+          .filter((c: any) => c.type === 'player')
+          .every((c: any) => c.hp === 0);
+
+        if (allEnemiesDead || allPlayersDead) {
           combatState.active = false;
         }
 
@@ -174,7 +197,7 @@ export async function POST(request: NextRequest) {
         const combatState = gameState.combat_state;
         combatState.turn_index++;
 
-        // Skip dead combatants
+        // Skip dead/unconscious combatants
         while (combatState.turn_index < combatState.combatants.length) {
           const current = combatState.combatants[combatState.turn_index];
           if (current.hp > 0) break;
@@ -185,6 +208,13 @@ export async function POST(request: NextRequest) {
         if (combatState.turn_index >= combatState.combatants.length) {
           combatState.turn_index = 0;
           combatState.round++;
+
+          // Skip dead/unconscious combatants at start of new round
+          while (combatState.turn_index < combatState.combatants.length) {
+            const current = combatState.combatants[combatState.turn_index];
+            if (current.hp > 0) break;
+            combatState.turn_index++;
+          }
         }
 
         await supabase

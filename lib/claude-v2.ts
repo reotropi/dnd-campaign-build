@@ -191,19 +191,30 @@ function buildIndonesianPrompt(): string {
    - Roll attack: \`"dm_rolls": [{ "name": "Rat #2 attack", "dice": "1d20+4", "result": 15 }]\`
    - Bandingkan dengan AC player
    - Jika hit: Roll damage
-   - Apply damage: \`"combat_update": { "damage": [...] }\`
+   - Apply damage: \`"combat_update": { "damage": [{"target_id": "player_id", "amount": 6}] }\`
+   - ⚠️ CEK HP PLAYER! Kalau HP <= 0, player JATUH PINGSAN (unconscious), skip turn mereka
+   - JANGAN end combat kecuali SEMUA player HP <= 0
    - Advance turn: \`"combat_update": { "advance_turn": true }\`
 
    **E. Player Turn:**
-   - Minta player action
-   - Request roll jika perlu: \`"request_roll": { "character": "Gorak", "type": "attack", ... }\`
-   - Tunggu hasil
-   - Apply damage jika hit
+   - Kalau player HP <= 0 (unconscious), SKIP turn mereka otomatis
+   - Kalau player masih hidup, minta player action
+   - Jika player serang, request ATTACK roll: \`"request_roll": { "character": "Gorak", "type": "attack", "reason": "Serang Rat #2" }\`
+   - Tunggu hasil attack roll
+   - Jika HIT (roll >= AC musuh), request DAMAGE roll: \`"request_roll": { "character": "Gorak", "type": "damage", "reason": "Damage untuk Rat #2" }\`
+   - Tunggu hasil damage roll
+   - Apply damage ke musuh: \`"combat_update": { "damage": [...] }\`
+   - ⚠️ CEK HP MUSUH! Kalau HP <= 0, musuh MATI
+   - Kalau semua musuh mati, end combat
    - Advance turn
 
 4. **ATURAN WAJIB:**
    - ✓ Selalu include "narrative" untuk cerita - JANGAN PERNAH BERHENTI BERCERITA!
-   - ✓ Satu enemy turn = roll attack + roll damage + apply damage + advance turn (semua dalam 1 response)
+   - ✓ Satu enemy turn = roll attack + roll damage + apply damage + CEK HP + advance turn (semua dalam 1 response)
+   - ✓ Player attack = 2 LANGKAH: (1) Request attack roll → tunggu → (2) Request damage roll → apply
+   - ✓ WAJIB CEK HP setelah damage!
+   - ✓ Player HP <= 0 = UNCONSCIOUS (pingsan), bukan mati. Skip turn mereka tapi combat lanjut
+   - ✓ Combat HANYA berakhir kalau: (1) Semua musuh mati ATAU (2) SEMUA player unconscious
    - ✓ Jangan berhenti di tengah round
    - ✓ Update combat_state lewat "combat_update"
    - ✓ Respons HARUS valid JSON
@@ -269,19 +280,30 @@ function buildEnglishPrompt(): string {
    - Roll attack: \`"dm_rolls": [{ "name": "Rat #2 attack", "dice": "1d20+4", "result": 15 }]\`
    - Compare with player AC
    - If hit: Roll damage
-   - Apply damage: \`"combat_update": { "damage": [...] }\`
+   - Apply damage: \`"combat_update": { "damage": [{"target_id": "player_id", "amount": 6}] }\`
+   - ⚠️ CHECK PLAYER HP! If HP <= 0, player goes UNCONSCIOUS, skip their turns
+   - DO NOT end combat unless ALL players are unconscious (HP <= 0)
    - Advance turn: \`"combat_update": { "advance_turn": true }\`
 
    **E. Player Turn:**
-   - Request player action
-   - Request roll if needed: \`"request_roll": { "character": "Gorak", "type": "attack", ... }\`
-   - Wait for result
-   - Apply damage if hit
+   - If player HP <= 0 (unconscious), SKIP their turn automatically
+   - If player is alive, request player action
+   - If player attacks, request ATTACK roll: \`"request_roll": { "character": "Gorak", "type": "attack", "reason": "Attack Rat #2" }\`
+   - Wait for attack roll result
+   - If HIT (roll >= enemy AC), request DAMAGE roll: \`"request_roll": { "character": "Gorak", "type": "damage", "reason": "Damage for Rat #2" }\`
+   - Wait for damage roll result
+   - Apply damage to enemy: \`"combat_update": { "damage": [...] }\`
+   - ⚠️ CHECK ENEMY HP! If HP <= 0, enemy DIES
+   - If all enemies dead, end combat
    - Advance turn
 
 4. **MANDATORY RULES:**
    - ✓ Always include "narrative" for the story - NEVER STOP NARRATING!
-   - ✓ One enemy turn = roll attack + roll damage + apply damage + advance turn (all in 1 response)
+   - ✓ One enemy turn = roll attack + roll damage + apply damage + CHECK HP + advance turn (all in 1 response)
+   - ✓ Player attack = 2 STEPS: (1) Request attack roll → wait → (2) Request damage roll → apply
+   - ✓ MUST CHECK HP after damage!
+   - ✓ Player HP <= 0 = UNCONSCIOUS (not dead). Skip their turns but combat continues
+   - ✓ Combat ONLY ends if: (1) All enemies dead OR (2) ALL players unconscious
    - ✓ Don't stop mid-round
    - ✓ Update combat_state via "combat_update"
    - ✓ Response MUST be valid JSON
