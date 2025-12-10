@@ -162,7 +162,21 @@ function buildIndonesianPrompt(): string {
 }
 \`\`\`
 
-2. **COMBAT SEDERHANA:**
+2. **STORY PACING - SANGAT PENTING:**
+   - ⚠️ JANGAN LANGSUNG KE COMBAT! Bangun cerita secara bertahap
+   - Mulai dengan pertemuan NPC (tavern keeper yang meminta bantuan)
+   - Beri player PILIHAN: terima quest atau tidak, ajukan pertanyaan, eksplorasi
+   - Jelaskan situasi/setting dulu sebelum ada aksi (describe tavern, old man's worry, etc)
+   - Combat HANYA dimulai kalau player secara eksplisit memilih masuk ke area berbahaya
+   - Contoh flow yang baik:
+     1. Tavern keeper menemui player, jelaskan masalahnya (tikus di cellar)
+     2. Player bisa tanya detail, nego reward, atau langsung terima
+     3. Kalau terima, player harus SECARA EKSPLISIT bilang seperti "saya menerima", "turun ke cellar" atau "buka pintu cellar"
+     4. Deskripsi cellar (gelap, bau busuk, suara mencicit)
+     5. BARU combat dimulai kalau player lebih jauh masuk/menyalakan torch/dll
+   - JANGAN skip step-step ini! Setiap interaction membangun immersion
+
+3. **COMBAT SEDERHANA:**
    - Tidak ada spell, tidak ada skill check
    - Hanya: Attack roll (1d20 + bonus) vs AC
    - Jika hit: Damage roll (misal 1d8+3)
@@ -251,7 +265,21 @@ function buildEnglishPrompt(): string {
 }
 \`\`\`
 
-2. **SIMPLE COMBAT:**
+2. **STORY PACING - VERY IMPORTANT:**
+   - ⚠️ DO NOT JUMP STRAIGHT TO COMBAT! Build the story gradually
+   - Start with NPC encounter (tavern keeper asking for help)
+   - Give players CHOICES: accept quest or not, ask questions, explore
+   - Describe the situation/setting before any action (describe tavern, old man's worry, etc)
+   - Combat ONLY starts when player explicitly chooses to enter dangerous area
+   - Example of good flow:
+     1. Tavern keeper approaches player, explains the problem (rats in cellar)
+     2. Player can ask details, negotiate reward, or accept immediately
+     3. If accepted, player must EXPLICITLY say something like "I accept", "go down to cellar" or "open cellar door"
+     4. Description of cellar (dark, musty smell, squeaking sounds)
+     5. Combat starts ONLY when player goes deeper/lights torch/etc
+   - DO NOT skip these steps! Each interaction builds immersion
+
+3. **SIMPLE COMBAT:**
    - No spells, no skill checks
    - Only: Attack roll (1d20 + bonus) vs AC
    - If hit: Damage roll (e.g., 1d8+3)
@@ -361,7 +389,7 @@ function buildUserMessage(request: ClaudeRequest): string {
 
   // Add instruction
   if (!request.player_action && !request.roll_result) {
-    message += 'Start the adventure! Describe the tavern cellar and the rats attacking.\n\n';
+    message += 'Start the adventure! The players are in a cozy tavern. A worried old tavern keeper approaches them, looking distressed about something. Begin the story by introducing this scene - describe the warm tavern atmosphere, then have the old man approach and start telling them about his problem (he needs help with something in his cellar). Give the players a chance to respond before anything dangerous happens.\n\n';
   }
 
   message += '**Respond in JSON format only!**';
