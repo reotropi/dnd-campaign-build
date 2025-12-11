@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       message: 'Combat ended',
     });
   } catch (error: any) {
-    console.error('Error ending combat:', error);
+
     return NextResponse.json(
       { error: error.message || 'Failed to end combat' },
       { status: 500 }

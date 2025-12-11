@@ -11,7 +11,7 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
 
     return NextResponse.json({ character: data });
   } catch (error: any) {
-    console.error('Error fetching character:', error);
+
     return NextResponse.json({ error: error.message || 'Failed to fetch character' }, { status: 500 });
   }
 }
@@ -37,7 +37,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     return NextResponse.json({ character: data });
   } catch (error: any) {
-    console.error('Error updating character:', error);
+
     return NextResponse.json({ error: error.message || 'Failed to update character' }, { status: 500 });
   }
 }
@@ -59,7 +59,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error('Error deleting character:', error);
+
     return NextResponse.json({ error: error.message || 'Failed to delete character' }, { status: 500 });
   }
 }

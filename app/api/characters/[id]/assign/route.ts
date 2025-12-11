@@ -57,7 +57,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     return NextResponse.json({ character });
   } catch (error: any) {
-    console.error('Error assigning character:', error);
+
     return NextResponse.json({ error: error.message || 'Failed to assign character' }, { status: 500 });
   }
 }

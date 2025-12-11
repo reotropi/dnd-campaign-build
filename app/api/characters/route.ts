@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ character: data }, { status: 201 });
   } catch (error: any) {
-    console.error('Error creating character:', error);
+
     return NextResponse.json({ error: error.message || 'Failed to create character' }, { status: 500 });
   }
 }

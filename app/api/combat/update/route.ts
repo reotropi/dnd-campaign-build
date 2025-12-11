@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
       combat_ended: !combatState.active,
     });
   } catch (error: any) {
-    console.error('Error updating combat:', error);
+
     return NextResponse.json(
       { error: error.message || 'Failed to update combat' },
       { status: 500 }

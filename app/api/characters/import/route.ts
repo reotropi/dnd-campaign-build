@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('Database error:', error);
+  
       throw error;
     }
 
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       character: data
     }, { status: 200 });
   } catch (error: any) {
-    console.error('Failed to import character:', error);
+
     return NextResponse.json(
       { error: error.message || 'Failed to import character' },
       { status: 500 }

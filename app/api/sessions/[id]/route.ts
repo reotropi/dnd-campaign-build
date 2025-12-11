@@ -11,7 +11,7 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
 
     return NextResponse.json({ session: data });
   } catch (error: any) {
-    console.error('Error fetching session:', error);
+
     return NextResponse.json({ error: error.message || 'Failed to fetch session' }, { status: 500 });
   }
 }
@@ -37,7 +37,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
     return NextResponse.json({ session: data });
   } catch (error: any) {
-    console.error('Error updating session:', error);
+
     return NextResponse.json({ error: error.message || 'Failed to update session' }, { status: 500 });
   }
 }

@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
       turn_order: initiativeComplete ? combatState.initiative_order : null,
     });
   } catch (error: any) {
-    console.error('Error updating initiative:', error);
+
     return NextResponse.json(
       { error: error.message || 'Failed to update initiative' },
       { status: 500 }

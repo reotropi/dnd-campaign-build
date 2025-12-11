@@ -22,7 +22,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error('Error updating ready status:', error);
+
     return NextResponse.json({ error: error.message || 'Failed to update ready status' }, { status: 500 });
   }
 }

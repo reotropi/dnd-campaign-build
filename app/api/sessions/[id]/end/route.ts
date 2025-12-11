@@ -36,7 +36,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     return NextResponse.json({ session: data });
   } catch (error: any) {
-    console.error('Error ending session:', error);
+
     return NextResponse.json({ error: error.message || 'Failed to end session' }, { status: 500 });
   }
 }

@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ session, member });
   } catch (error: any) {
-    console.error('Error joining session:', error);
+
     return NextResponse.json({ error: error.message || 'Failed to join session' }, { status: 500 });
   }
 }

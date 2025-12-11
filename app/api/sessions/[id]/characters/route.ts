@@ -27,7 +27,7 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
 
     return NextResponse.json({ characters });
   } catch (error: any) {
-    console.error('Error fetching session characters:', error);
+
     return NextResponse.json({ error: error.message || 'Failed to fetch characters' }, { status: 500 });
   }
 }
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     return NextResponse.json({ success: true, session_character: data });
   } catch (error: any) {
-    console.error('Error adding character to session:', error);
+
     return NextResponse.json({ error: error.message || 'Failed to add character' }, { status: 500 });
   }
 }
@@ -126,7 +126,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error('Error removing character from session:', error);
+
     return NextResponse.json({ error: error.message || 'Failed to remove character' }, { status: 500 });
   }
 }

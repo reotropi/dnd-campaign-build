@@ -50,7 +50,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       .eq('session_id', params.id);
 
     if (sessionCharsError) {
-      console.error('Error fetching characters for session state init:', sessionCharsError);
+
     } else if (sessionChars) {
       // Initialize session-specific state for each character
       for (const sc of sessionChars) {
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     return NextResponse.json({ session: data });
   } catch (error: any) {
-    console.error('Error starting session:', error);
+
     return NextResponse.json({ error: error.message || 'Failed to start session' }, { status: 500 });
   }
 }

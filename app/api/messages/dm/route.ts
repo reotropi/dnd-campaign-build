@@ -23,13 +23,11 @@ export async function POST(request: NextRequest) {
     }).select().single();
 
     if (error) {
-      console.error('Error inserting DM message:', error);
       throw error;
     }
 
     return NextResponse.json({ message: data });
   } catch (error: any) {
-    console.error('Error in DM message route:', error);
     return NextResponse.json(
       { error: error.message || 'Failed to send DM message' },
       { status: 500 }

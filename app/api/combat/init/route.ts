@@ -93,7 +93,6 @@ export async function POST(request: NextRequest) {
       message: `Combat initialized with ${players.length} players and ${enemyCombatants.length} enemies`,
     });
   } catch (error: any) {
-    console.error('Error initializing combat:', error);
     return NextResponse.json(
       { error: error.message || 'Failed to initialize combat' },
       { status: 500 }
