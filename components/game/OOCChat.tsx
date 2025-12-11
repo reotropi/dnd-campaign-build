@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Card, Stack, TextInput, Button, ScrollArea, Text, Group, Badge } from '@mantine/core';
+import { Card, Stack, TextInput, ScrollArea, Text, Group, Badge, ActionIcon } from '@mantine/core';
 import { MessageWithDetails } from '@/types';
+import { PiPaperPlaneRight } from 'react-icons/pi';
 
 interface OOCChatProps {
   messages: MessageWithDetails[];
@@ -85,9 +86,15 @@ export function OOCChat({ messages, onSendMessage }: OOCChatProps) {
           onChange={(e) => setMessageInput(e.target.value)}
           onKeyPress={handleKeyPress}
           rightSection={
-            <Button size="xs" onClick={handleSend}>
-              Send
-            </Button>
+            <ActionIcon
+              size="lg"
+              variant="filled"
+              color="grape"
+              onClick={handleSend}
+              disabled={!messageInput.trim()}
+            >
+              <PiPaperPlaneRight size={20} />
+            </ActionIcon>
           }
         />
       </Stack>

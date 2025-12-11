@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Stack, TextInput, Button, ScrollArea, Card, Text, Group, Badge } from '@mantine/core';
+import { Stack, TextInput, Button, ScrollArea, Card, Text, Group, Badge, ActionIcon } from '@mantine/core';
+import { PiPaperPlaneRight } from 'react-icons/pi';
 import { MessageWithDetails, RollData } from '@/types';
 import { ChatMessage } from './ChatMessage';
 
@@ -54,7 +55,7 @@ export function ChatBox({ messages, onSendMessage, pendingRoll, onClearRoll }: C
     return labels[type] || type;
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -110,17 +111,25 @@ export function ChatBox({ messages, onSendMessage, pendingRoll, onClearRoll }: C
           </Card>
         )}
 
-        <TextInput
-          placeholder={pendingRoll ? "Add a message (optional)..." : "Type your action or message..."}
-          value={messageInput}
-          onChange={(e) => setMessageInput(e.target.value)}
-          onKeyPress={handleKeyPress}
-          rightSection={
-            <Button size="xs" onClick={handleSend} disabled={!messageInput.trim() && !pendingRoll}>
-              Send
-            </Button>
-          }
-        />
+        <Group gap="xs" align="flex-end">
+          <TextInput
+            flex={1}
+            placeholder={pendingRoll ? "Add a message (optional)..." : "Type your action or message..."}
+            value={messageInput}
+            onChange={(e) => setMessageInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            size="md"
+          />
+          <ActionIcon
+            size="lg"
+            variant="filled"
+            color="blue"
+            onClick={handleSend}
+            disabled={!messageInput.trim() && !pendingRoll}
+          >
+            <PiPaperPlaneRight size={20} />
+          </ActionIcon>
+        </Group>
       </Stack>
     </Stack>
   );

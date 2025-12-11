@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Container, Grid, Loader, Center, Stack } from '@mantine/core';
+import { Container, Grid, Loader, Center, Stack, ActionIcon, Group, Text } from '@mantine/core';
 import { useParams } from 'next/navigation';
+import { useDisclosure, useMediaQuery } from '@mantine/hooks';
+import { PiList } from 'react-icons/pi';
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute';
 import { CharacterPanel } from '@/components/game/CharacterPanel';
 import { DiceRoller } from '@/components/game/DiceRoller';
@@ -11,6 +13,10 @@ import { PartyMembers } from '@/components/game/PartyMembers';
 import { HostControls } from '@/components/game/HostControls';
 import { OOCChat } from '@/components/game/OOCChat';
 import { CombatTracker } from '@/components/game/CombatTracker';
+import { GameDrawer } from '@/components/game/GameDrawer';
+import { OOCChatModal } from '@/components/game/OOCChatModal';
+import { DiceRollerModal } from '@/components/game/DiceRollerModal';
+import { MobileActionButtons } from '@/components/game/MobileActionButtons';
 import { useAuth } from '@/hooks/useAuth';
 import { useSession, useSessionMembers } from '@/hooks/useSession';
 import { useSessionCharacter } from '@/hooks/useSessionCharacter';
@@ -36,7 +42,25 @@ function GameContent() {
   const [initialMessageSent, setInitialMessageSent] = useState(false);
   const [pendingRoll, setPendingRoll] = useState<RollData | null>(null);
 
+  // Mobile UI state
+  const isMobile = useMediaQuery('(max-width: 768px)');
+  const [drawerOpened, { open: openDrawer, close: closeDrawer }] = useDisclosure(false);
+  const [oocModalOpened, { open: openOOCModal, close: closeOOCModal }] = useDisclosure(false);
+  const [diceModalOpened, { open: openDiceModal, close: closeDiceModal }] = useDisclosure(false);
+  const [lastReadOOCCount, setLastReadOOCCount] = useState(0);
+
   const isHost = session?.host_id === user?.id;
+
+  // Calculate unread OOC messages
+  const oocMessages = messages.filter((m) => m.message_type === 'ooc');
+  const unreadOOCCount = Math.max(0, oocMessages.length - lastReadOOCCount);
+
+  // Mark OOC as read when modal opens
+  useEffect(() => {
+    if (oocModalOpened) {
+      setLastReadOOCCount(oocMessages.length);
+    }
+  }, [oocModalOpened, oocMessages.length]);
 
   // Check if last message has roll prompt data
   useEffect(() => {
@@ -190,20 +214,62 @@ function GameContent() {
     );
   }
 
-  return (
-    <Container size="xl" py="md">
-      <Grid gutter="md">
-        {/* Left Column - Character & Dice */}
-        <Grid.Col span={{ base: 12, md: 3 }}>
-          <Stack gap="md">
-            <CharacterPanel character={character} />
-            <DiceRoller character={character} rollPrompt={rollPrompt} onRoll={handleRoll} />
-            {isHost && <HostControls sessionId={sessionId} />}
-          </Stack>
-        </Grid.Col>
+  // Check if we can roll (for mobile dice button)
+  const canRollDice = rollPrompt?.character_name === character?.name;
 
-        {/* Middle Column - Chat */}
-        <Grid.Col span={{ base: 12, md: 6 }}>
+  return (
+    <>
+      {/* Mobile Drawer for Game Info */}
+      {isMobile && character && (
+        <GameDrawer
+          opened={drawerOpened}
+          onClose={closeDrawer}
+          character={character}
+          members={members}
+          combatState={combatState}
+          isHost={isHost}
+          sessionId={sessionId}
+        />
+      )}
+
+      {/* Mobile OOC Chat Modal */}
+      {isMobile && (
+        <OOCChatModal
+          opened={oocModalOpened}
+          onClose={closeOOCModal}
+          messages={messages}
+          onSendMessage={sendOOCMessage}
+          unreadCount={unreadOOCCount}
+        />
+      )}
+
+      {/* Mobile Dice Roller Modal */}
+      {isMobile && character && (
+        <DiceRollerModal
+          opened={diceModalOpened}
+          onClose={closeDiceModal}
+          character={character}
+          rollPrompt={rollPrompt}
+          onRoll={handleRoll}
+        />
+      )}
+
+      <Container size="xl" py="md" pb={isMobile ? 80 : 'md'}>
+        {/* Mobile Header with Menu Button */}
+        {isMobile && (
+          <Group justify="space-between" mb="md" pb="sm" style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
+            <ActionIcon size="lg" variant="light" onClick={openDrawer}>
+              <PiList size={24} />
+            </ActionIcon>
+            <Text fw={700} size="lg">
+              {character?.name || 'D&D Game'}
+            </Text>
+            <div style={{ width: 40 }} /> {/* Spacer for centering */}
+          </Group>
+        )}
+
+        {isMobile ? (
+          /* Mobile Layout - Chat Only */
           <ChatBox
             messages={messages}
             onSendMessage={handleSendMessage}
@@ -211,18 +277,51 @@ function GameContent() {
             pendingRoll={pendingRoll}
             onClearRoll={handleClearRoll}
           />
-        </Grid.Col>
+        ) : (
+          /* Desktop Layout - Original Grid */
+          <Grid gutter="md">
+            {/* Left Column - Character & Dice */}
+            <Grid.Col span={{ base: 12, md: 3 }}>
+              <Stack gap="md">
+                <CharacterPanel character={character} />
+                <DiceRoller character={character} rollPrompt={rollPrompt} onRoll={handleRoll} />
+                {isHost && <HostControls sessionId={sessionId} />}
+              </Stack>
+            </Grid.Col>
 
-        {/* Right Column - Party & OOC Chat */}
-        <Grid.Col span={{ base: 12, md: 3 }}>
-          <Stack gap="md">
-            {combatState && <CombatTracker combatState={combatState} />}
-            <PartyMembers members={members} />
-            <OOCChat messages={messages} onSendMessage={sendOOCMessage} />
-          </Stack>
-        </Grid.Col>
-      </Grid>
-    </Container>
+            {/* Middle Column - Chat */}
+            <Grid.Col span={{ base: 12, md: 6 }}>
+              <ChatBox
+                messages={messages}
+                onSendMessage={handleSendMessage}
+                loading={dmLoading}
+                pendingRoll={pendingRoll}
+                onClearRoll={handleClearRoll}
+              />
+            </Grid.Col>
+
+            {/* Right Column - Party & OOC Chat */}
+            <Grid.Col span={{ base: 12, md: 3 }}>
+              <Stack gap="md">
+                {combatState && <CombatTracker combatState={combatState} />}
+                <PartyMembers members={members} />
+                <OOCChat messages={messages} onSendMessage={sendOOCMessage} />
+              </Stack>
+            </Grid.Col>
+          </Grid>
+        )}
+      </Container>
+
+      {/* Mobile Bottom Action Buttons */}
+      {isMobile && (
+        <MobileActionButtons
+          onOpenOOC={openOOCModal}
+          onOpenDice={openDiceModal}
+          oocUnreadCount={unreadOOCCount}
+          diceEnabled={canRollDice}
+        />
+      )}
+    </>
   );
 }
 

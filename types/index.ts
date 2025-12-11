@@ -391,3 +391,9 @@ export type AbilityScore = 'strength' | 'dexterity' | 'constitution' | 'intellig
 
 // Utility type for skill names
 export type SkillName = keyof Skills;
+
+// ============================================================================
+// COMBAT TYPES (re-exported from combat.ts)
+// ============================================================================
+
+export type { CombatState, CombatParticipant, PlayerCombatant, EnemyCombatant, CombatantType } from './combat';

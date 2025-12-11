@@ -276,7 +276,7 @@ export async function getDMResponse(context: DMContext): Promise<{
     const characterUpdates: CharacterUpdate[] = [];
 
     // Log the raw message for debugging
-    console.log('Claude API response:', JSON.stringify(message, null, 2));
+
 
     // Process all content blocks
     for (const block of message.content) {
@@ -366,7 +366,7 @@ export async function getDMResponse(context: DMContext): Promise<{
                 responseText += `\n\n[Combat initialized! ${result.message}]`;
               }
             } catch (error) {
-              console.error('Error initializing combat:', error);
+          
             }
           }
         } else if (block.name === 'update_combat') {
@@ -389,7 +389,7 @@ export async function getDMResponse(context: DMContext): Promise<{
                 responseText += `\n\n[Combat ended!]`;
               }
             } catch (error) {
-              console.error('Error updating combat:', error);
+          
             }
           }
         } else if (block.name === 'end_combat') {
@@ -409,7 +409,7 @@ export async function getDMResponse(context: DMContext): Promise<{
                 responseText += `\n\n[${result.message}]`;
               }
             } catch (error) {
-              console.error('Error ending combat:', error);
+          
             }
           }
         }
@@ -418,13 +418,13 @@ export async function getDMResponse(context: DMContext): Promise<{
 
     // Warn if response is empty - this usually means only tool calls were returned
     if (!responseText || responseText.trim() === '') {
-      console.warn('Claude returned empty response! Message content:', message.content);
-      console.warn('Stop reason:', message.stop_reason);
-      console.warn('Tool calls made:', rollPrompts, characterUpdates);
+  
+  
+  
 
       // If we have roll prompts, that's probably the issue
       if (rollPrompts.length > 0) {
-        console.warn('Claude returned only roll prompts without narrative text!');
+    
         responseText = '*[DM is waiting for your roll]*';
       } else {
         responseText = '*The Dungeon Master pauses, deep in thought...*\n\nTry rephrasing your action or asking what you should do next.';
@@ -441,8 +441,8 @@ export async function getDMResponse(context: DMContext): Promise<{
       const mentionsDamage = /damage|hit|dies?|killed|HP|health/i.test(responseText);
 
       if (mentionsDamage && !combatToolCalled) {
-        console.warn('⚠️ WARNING: Combat active, narrative mentions damage/death, but no combat tool called!');
-        console.warn('Response:', responseText);
+    
+    
         responseText += '\n\n*[System: Combat state may be out of sync - DM forgot to update state]*';
       }
     }
@@ -453,7 +453,7 @@ export async function getDMResponse(context: DMContext): Promise<{
       characterUpdates: characterUpdates.length > 0 ? characterUpdates : undefined,
     };
   } catch (error) {
-    console.error('Error getting DM response:', error);
+
     throw new Error('Failed to get response from Dungeon Master');
   }
 }

@@ -114,11 +114,9 @@ export async function getDMResponseV2(request: ClaudeRequest): Promise<ClaudeRes
 
     const response: ClaudeResponse = JSON.parse(jsonText);
 
-    console.log('[Claude V2] Response:', JSON.stringify(response, null, 2));
-
     return response;
   } catch (error) {
-    console.error('[Claude V2] Error:', error);
+    // Error parsing Claude response
 
     // Fallback response
     return {

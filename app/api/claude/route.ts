@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
       rollPrompts: dmResponse.rollPrompts,
     });
   } catch (error: any) {
-    console.error('Error getting DM response:', error);
+
     return NextResponse.json({ error: error.message || 'Failed to get DM response' }, { status: 500 });
   }
 }

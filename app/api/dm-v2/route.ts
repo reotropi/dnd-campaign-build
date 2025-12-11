@@ -232,7 +232,7 @@ export async function POST(request: NextRequest) {
       dm_rolls: dmResponse.dm_rolls,
     });
   } catch (error: any) {
-    console.error('[DM V2] Error:', error);
+
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

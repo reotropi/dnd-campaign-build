@@ -245,7 +245,6 @@ export async function POST(request: NextRequest) {
       rollPrompts: rollPrompts,
     });
   } catch (error: any) {
-    console.error('[Claude V2] Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
