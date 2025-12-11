@@ -76,8 +76,7 @@ export function useGameChat(sessionId: string | null) {
           character:characters(id, name, class, level, race, armor_class)
         `)
         .eq('session_id', sessionId)
-        .order('created_at', { ascending: true })
-        .limit(100);
+        .order('created_at', { ascending: true });
 
       if (error) {
         console.error('[useGameChat] Error fetching messages:', error);
