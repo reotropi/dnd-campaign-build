@@ -174,7 +174,7 @@ export async function getDMResponseV2(request: ClaudeRequest): Promise<ClaudeRes
 
   try {
     const message = await anthropic.messages.create({
-      model: 'claude-3-5-haiku-20241022',
+      model: 'claude-sonnet-4-5-20250929',
       max_tokens: 2048,
       system: systemPrompt, // System prompt as string (caching handled by Anthropic automatically)
       messages: [
