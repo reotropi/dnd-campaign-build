@@ -2,10 +2,12 @@ import { RollData, RollType, AdvantageType, DiceRoll, RollModifier, Character } 
 import { getAbilityModifier } from './claude';
 
 /**
- * Roll a single die
+ * Roll a single die (1 to sides, never 0)
  */
 export function rollDie(sides: number): number {
-  return Math.floor(Math.random() * sides) + 1;
+  const result = Math.floor(Math.random() * sides) + 1;
+  // Safety check: ensure result is between 1 and sides
+  return Math.max(1, Math.min(sides, result));
 }
 
 /**

@@ -17,34 +17,81 @@ export function RollDisplay({ roll }: RollDisplayProps) {
       <FaDice size={20} color="var(--mantine-color-blue-6)" />
 
       {/* Display each dice roll */}
-      {roll.dice.map((dice, idx) => {
-        const dieLabel = hasAdvantage && dice.individual_rolls && dice.individual_rolls.length > 1
-          ? `${dice.individual_rolls[0]} | ${dice.individual_rolls[1]}`
-          : dice.result.toString();
+      {roll.dice.map((dice, diceIdx) => {
+        // For advantage/disadvantage on d20, show both rolls side by side
+        if (hasAdvantage && dice.individual_rolls && dice.individual_rolls.length > 1) {
+          return (
+            <Group key={`dice-${diceIdx}`} gap={4} wrap="nowrap">
+              {dice.individual_rolls.map((rollValue, rollIdx) => {
+                const isSelected = rollValue === dice.result;
+                return (
+                  <Tooltip
+                    key={`roll-${diceIdx}-${rollIdx}`}
+                    label={`${dice.dice_type}: ${rollValue}${isSelected ? ' (selected)' : ''}`}
+                    withArrow
+                    position="top"
+                  >
+                    <Pill
+                      size="lg"
+                      style={{
+                        fontWeight: 600,
+                        fontSize: '16px',
+                        cursor: 'help',
+                        whiteSpace: 'nowrap',
+                        color: 'white',
+                        backgroundColor: roll.advantage_type === 'advantage'
+                          ? isSelected ? 'var(--mantine-color-green-6)' : 'var(--mantine-color-gray-5)'
+                          : isSelected ? 'var(--mantine-color-red-6)' : 'var(--mantine-color-gray-5)',
+                        opacity: isSelected ? 1 : 0.6,
+                      }}
+                    >
+                      {rollValue}
+                    </Pill>
+                  </Tooltip>
+                );
+              })}
+            </Group>
+          );
+        }
 
-        const tooltipContent = (
-          <div>
-            <Text size="sm" fw={500}>
-              🎲 {dice.count}× roll {dice.dice_type}
-            </Text>
-            <Text size="xs" c="dimmed">
-              Result: {dice.result}
-            </Text>
-            {dice.individual_rolls && dice.individual_rolls.length > 1 && (
-              <Text size="xs" c="dimmed">
-                {roll.advantage_type === 'advantage'
-                  ? `✨ ADVANTAGE / Rolls: ${dice.individual_rolls.join(', ')} / Selected: ${dice.result} (higher)`
-                  : roll.advantage_type === 'disadvantage'
-                  ? `💀 DISADVANTAGE / Rolls: ${dice.individual_rolls.join(', ')} / Selected: ${dice.result} (lower)`
-                  : `Rolls: ${dice.individual_rolls.join(', ')}`
-                }
-              </Text>
-            )}
-          </div>
-        );
+        // For multiple dice (e.g., 4d8), show each die individually
+        if (dice.individual_rolls && dice.individual_rolls.length > 1) {
+          return (
+            <Group key={`dice-${diceIdx}`} gap={4} wrap="nowrap">
+              {dice.individual_rolls.map((rollValue, rollIdx) => (
+                <Tooltip
+                  key={`roll-${diceIdx}-${rollIdx}`}
+                  label={`${dice.dice_type}: ${rollValue}`}
+                  withArrow
+                  position="top"
+                >
+                  <Pill
+                    size="lg"
+                    style={{
+                      fontWeight: 600,
+                      fontSize: '16px',
+                      cursor: 'help',
+                      whiteSpace: 'nowrap',
+                      color: 'white',
+                      backgroundColor: `var(--mantine-color-${getDiceColor(dice.dice_type)}-6)`,
+                    }}
+                  >
+                    {rollValue}
+                  </Pill>
+                </Tooltip>
+              ))}
+            </Group>
+          );
+        }
 
+        // For single die (e.g., 1d20), show single pill
         return (
-          <Tooltip key={`dice-${idx}`} label={tooltipContent} withArrow position="top">
+          <Tooltip
+            key={`dice-${diceIdx}`}
+            label={`${dice.dice_type}: ${dice.result}`}
+            withArrow
+            position="top"
+          >
             <Pill
               size="lg"
               style={{
@@ -52,14 +99,11 @@ export function RollDisplay({ roll }: RollDisplayProps) {
                 fontSize: '16px',
                 cursor: 'help',
                 whiteSpace: 'nowrap',
-                backgroundColor: hasAdvantage
-                  ? roll.advantage_type === 'advantage'
-                    ? 'var(--mantine-color-green-6)'
-                    : 'var(--mantine-color-red-6)'
-                  : `var(--mantine-color-${getDiceColor(dice.dice_type)}-6)`
+                color: 'white',
+                backgroundColor: `var(--mantine-color-${getDiceColor(dice.dice_type)}-6)`,
               }}
             >
-              {dieLabel}
+              {dice.result}
             </Pill>
           </Tooltip>
         );
@@ -91,9 +135,9 @@ export function RollDisplay({ roll }: RollDisplayProps) {
                 whiteSpace: 'nowrap',
               }}
             >
-              <Group gap={4} wrap="nowrap" style={{ alignItems: 'center' }}>
-                <FaPlus size={12} />
-                <span>{mod.value >= 0 ? mod.value : mod.value}</span>
+              <Group gap={4} wrap="nowrap" style={{ alignItems: 'center', color: 'white' }}>
+                <FaPlus size={12} color="white" />
+                <span style={{ color: 'white' }}>{mod.value >= 0 ? mod.value : mod.value}</span>
               </Group>
             </Pill>
           </Tooltip>

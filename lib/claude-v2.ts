@@ -77,6 +77,91 @@ interface ClaudeResponse {
 }
 
 // ============================================================================
+// JSON VALIDATION - Ensure Haiku returns valid structure
+// ============================================================================
+
+function validateClaudeResponse(data: any): ClaudeResponse {
+  // Ensure narrative exists
+  if (!data.narrative || typeof data.narrative !== 'string') {
+    throw new Error('Missing or invalid narrative field');
+  }
+
+  const response: ClaudeResponse = {
+    narrative: data.narrative,
+  };
+
+  // Validate request_roll if present
+  if (data.request_roll) {
+    if (!data.request_roll.character || !data.request_roll.type || !data.request_roll.reason) {
+      console.warn('Invalid request_roll structure, skipping');
+    } else {
+      response.request_roll = {
+        character: String(data.request_roll.character),
+        type: data.request_roll.type,
+        reason: String(data.request_roll.reason),
+      };
+    }
+  }
+
+  // Validate dm_rolls if present
+  if (data.dm_rolls && Array.isArray(data.dm_rolls)) {
+    response.dm_rolls = data.dm_rolls
+      .filter((roll: any) => roll.name && roll.dice && typeof roll.result === 'number')
+      .map((roll: any) => ({
+        name: String(roll.name),
+        dice: String(roll.dice),
+        result: Number(roll.result),
+      }));
+  }
+
+  // Validate combat_update if present
+  if (data.combat_update && typeof data.combat_update === 'object') {
+    response.combat_update = {};
+
+    // Validate damage array
+    if (data.combat_update.damage && Array.isArray(data.combat_update.damage)) {
+      response.combat_update.damage = data.combat_update.damage
+        .filter((d: any) => d.target_id && typeof d.amount === 'number')
+        .map((d: any) => ({
+          target_id: String(d.target_id),
+          amount: Number(d.amount),
+        }));
+    }
+
+    // Validate deaths array
+    if (data.combat_update.deaths && Array.isArray(data.combat_update.deaths)) {
+      response.combat_update.deaths = data.combat_update.deaths.map((id: any) => String(id));
+    }
+
+    // Validate start_combat
+    if (data.combat_update.start_combat && data.combat_update.start_combat.enemies) {
+      const enemies = data.combat_update.start_combat.enemies;
+      if (Array.isArray(enemies)) {
+        response.combat_update.start_combat = {
+          enemies: enemies
+            .filter((e: any) => e.name && e.count && e.hp && e.ac)
+            .map((e: any) => ({
+              name: String(e.name),
+              count: Number(e.count),
+              hp: Number(e.hp),
+              ac: Number(e.ac),
+              attack_bonus: Number(e.attack_bonus || 0),
+              damage_dice: String(e.damage_dice || '1d4'),
+            })),
+        };
+      }
+    }
+
+    // Validate advance_turn
+    if (data.combat_update.advance_turn !== undefined) {
+      response.combat_update.advance_turn = Boolean(data.combat_update.advance_turn);
+    }
+  }
+
+  return response;
+}
+
+// ============================================================================
 // MAIN FUNCTION - Get DM Response with JSON
 // ============================================================================
 
@@ -89,7 +174,7 @@ export async function getDMResponseV2(request: ClaudeRequest): Promise<ClaudeRes
 
   try {
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5-20250929',
+      model: 'claude-3-5-haiku-20241022',
       max_tokens: 2048,
       system: systemPrompt, // System prompt as string (caching handled by Anthropic automatically)
       messages: [
@@ -111,16 +196,26 @@ export async function getDMResponseV2(request: ClaudeRequest): Promise<ClaudeRes
     if (jsonText.startsWith('```json')) {
       jsonText = jsonText.replace(/```json\n?/, '').replace(/\n?```$/, '');
     }
+    if (jsonText.startsWith('```')) {
+      jsonText = jsonText.replace(/```\n?/, '').replace(/\n?```$/, '');
+    }
 
-    const response: ClaudeResponse = JSON.parse(jsonText);
+    // Parse and validate JSON
+    const rawResponse = JSON.parse(jsonText);
+    const validatedResponse = validateClaudeResponse(rawResponse);
 
-    return response;
+    return validatedResponse;
   } catch (error) {
     // Error parsing Claude response
+    console.error('Claude V2 Error:', error);
 
-    // Fallback response
+    // Fallback response in appropriate language
+    const fallbackNarrative = request.language === 'english'
+      ? 'The Dungeon Master is thinking... Please try your action again.'
+      : 'Dungeon Master sedang berpikir... Coba ulangi aksimu.';
+
     return {
-      narrative: 'Dungeon Master sedang berpikir... Coba ulangi aksimu.',
+      narrative: fallbackNarrative,
       combat_update: {},
     };
   }
