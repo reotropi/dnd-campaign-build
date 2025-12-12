@@ -276,6 +276,8 @@ function GameContent() {
             loading={dmLoading}
             pendingRoll={pendingRoll}
             onClearRoll={handleClearRoll}
+            sessionId={sessionId}
+            currentCharacterName={character?.name || null}
           />
         ) : (
           /* Desktop Layout - Original Grid */
@@ -297,6 +299,8 @@ function GameContent() {
                 loading={dmLoading}
                 pendingRoll={pendingRoll}
                 onClearRoll={handleClearRoll}
+                sessionId={sessionId}
+                currentCharacterName={character?.name || null}
               />
             </Grid.Col>
 

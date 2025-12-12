@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Stack, TextInput, Button, ScrollArea, Card, Text, Group, Badge, ActionIcon } from '@mantine/core';
+import { Stack, Textarea, Button, ScrollArea, Card, Text, Group, Badge, ActionIcon } from '@mantine/core';
 import { PiPaperPlaneRight } from 'react-icons/pi';
 import { MessageWithDetails, RollData } from '@/types';
 import { ChatMessage } from './ChatMessage';
+import { TypingIndicator } from './TypingIndicator';
+import { useTypingIndicator } from '@/hooks/useTypingIndicator';
 
 interface ChatBoxProps {
   messages: MessageWithDetails[];
@@ -12,12 +14,15 @@ interface ChatBoxProps {
   loading?: boolean;
   pendingRoll?: RollData | null;
   onClearRoll?: () => void;
+  sessionId: string | null;
+  currentCharacterName: string | null;
 }
 
-export function ChatBox({ messages, onSendMessage, pendingRoll, onClearRoll }: ChatBoxProps) {
+export function ChatBox({ messages, onSendMessage, pendingRoll, onClearRoll, sessionId, currentCharacterName }: ChatBoxProps) {
   const [messageInput, setMessageInput] = useState('');
   const viewport = useRef<HTMLDivElement>(null);
   const lastMessageRef = useRef<HTMLDivElement>(null);
+  const { typingUsers, startTyping, stopTyping } = useTypingIndicator(sessionId, currentCharacterName);
 
   // Filter out OOC messages (they're shown in the OOC panel on the right)
   const gameMessages = messages.filter((m) => m.message_type !== 'ooc');
@@ -37,9 +42,23 @@ export function ChatBox({ messages, onSendMessage, pendingRoll, onClearRoll }: C
   const handleSend = () => {
     if (!messageInput.trim() && !pendingRoll) return;
 
+    // Stop typing indicator when sending
+    stopTyping();
+
     onSendMessage(messageInput || `Rolled ${pendingRoll?.total} for ${pendingRoll?.roll_type}`, pendingRoll || undefined);
     setMessageInput('');
     if (onClearRoll) onClearRoll();
+  };
+
+  const handleInputChange = (value: string) => {
+    setMessageInput(value);
+
+    // Trigger typing indicator
+    if (value.trim()) {
+      startTyping();
+    } else {
+      stopTyping();
+    }
   };
 
   const getRollTypeLabel = (type: string) => {
@@ -74,6 +93,11 @@ export function ChatBox({ messages, onSendMessage, pendingRoll, onClearRoll }: C
               <ChatMessage message={message} />
             </div>
           ))}
+
+          {/* Typing indicator */}
+          {typingUsers.length > 0 && (
+            <TypingIndicator characterNames={typingUsers.map(u => u.characterName)} />
+          )}
         </Stack>
       </ScrollArea>
 
@@ -112,13 +136,16 @@ export function ChatBox({ messages, onSendMessage, pendingRoll, onClearRoll }: C
         )}
 
         <Group gap="xs" align="flex-end">
-          <TextInput
+          <Textarea
             flex={1}
             placeholder={pendingRoll ? "Add a message (optional)..." : "Type your action or message..."}
             value={messageInput}
-            onChange={(e) => setMessageInput(e.target.value)}
+            onChange={(e) => handleInputChange(e.target.value)}
             onKeyDown={handleKeyDown}
             size="md"
+            minRows={1}
+            maxRows={4}
+            autosize
           />
           <ActionIcon
             size="lg"
